@@ -68,4 +68,6 @@ async function testAlign() {
   }
 }
 
-testAlign();
+cv.onRuntimeInitialized = () => {
+  testAlign().catch(console.error);
+};

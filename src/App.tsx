@@ -118,33 +118,71 @@ function App() {
       </header>
 
       <main className="main-content">
-        <section className="glass-panel workspace animate-fade-in" style={{ animationDelay: '0.1s' }}>
+        <section className="workspace animate-fade-in" style={{ animationDelay: '0.1s' }}>
           <div className="toolbar">
-            <label className="btn btn-primary">
-              <Settings size={20} />
-              Load Template JSON
-              <input type="file" accept=".json" hidden onChange={handleTemplateUpload} />
-            </label>
-            <label className={`btn btn-outline ${!template ? 'opacity-50 pointer-events-none' : ''}`}>
-              <Upload size={20} />
-              Upload Scan
-              <input type="file" accept="image/*" hidden onChange={handleImageUpload} disabled={!template} />
-            </label>
-            <button className="btn btn-outline" onClick={startCamera}>
-              <Camera size={20} />
-              Start Camera
-            </button>
-            <button className="btn btn-outline" disabled={Object.keys(results).length === 0} onClick={exportResults}>
-              <FileSpreadsheet size={20} />
-              Export CSV
-            </button>
+            <div className="glass-panel">
+              <h3>Configuration</h3>
+              <label className="btn btn-primary">
+                <Settings size={20} />
+                Load Template
+                <input type="file" accept=".json" hidden onChange={handleTemplateUpload} />
+              </label>
+              <label className={`btn btn-outline ${!template ? 'opacity-50 pointer-events-none' : ''}`}>
+                <Upload size={20} />
+                Upload Scan
+                <input type="file" accept="image/*" hidden onChange={handleImageUpload} disabled={!template} />
+              </label>
+            </div>
+            
+            <div className="glass-panel">
+              <h3>Capture</h3>
+              <button className="btn btn-outline" onClick={startCamera}>
+                <Camera size={20} />
+                Start Camera
+              </button>
+            </div>
+
+            {Object.keys(results).length > 0 && (
+              <div className="glass-panel animate-fade-in">
+                <h3>Results Data</h3>
+                <button className="btn btn-primary" style={{ width: '100%', marginBottom: '1rem' }} onClick={exportResults}>
+                  <FileSpreadsheet size={20} />
+                  Export CSV
+                </button>
+                <div className="results-grid">
+                  {Object.keys(results).slice(0, 8).map(key => (
+                    <div key={key} className="result-item">
+                      <span className="result-label">{key}</span>
+                      <span className="result-value">{results[key].join(', ') || '-'}</span>
+                    </div>
+                  ))}
+                  {Object.keys(results).length > 8 && (
+                    <div className="result-item" style={{ opacity: 0.7 }}>
+                      <span className="result-label">...</span>
+                      <span className="result-value">+{Object.keys(results).length - 8} more</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="preview-area">
-            <canvas ref={imageCanvasRef} style={{ display: 'none' }}></canvas>
-            <canvas ref={canvasRef} className="overlay-canvas"></canvas>
-            <div className="placeholder-text">
-              {Object.keys(results).length > 0 ? '' : 'Upload an image to start'}
+          <div className="glass-panel" style={{ padding: '1rem', display: 'flex', flexDirection: 'column' }}>
+            <div className="preview-area">
+              <canvas ref={imageCanvasRef} style={{ display: 'none' }}></canvas>
+              <canvas ref={canvasRef} className="overlay-canvas"></canvas>
+              {!template && (
+                <div className="placeholder-text">
+                  <Settings className="placeholder-icon" />
+                  <span>Start by loading a Template JSON</span>
+                </div>
+              )}
+              {template && Object.keys(results).length === 0 && (
+                <div className="placeholder-text">
+                  <Upload className="placeholder-icon" />
+                  <span>Upload a scan or use camera</span>
+                </div>
+              )}
             </div>
           </div>
         </section>
