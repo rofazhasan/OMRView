@@ -1,194 +1,307 @@
-import { useState, useRef, useEffect } from 'react'
-import type { ChangeEvent } from 'react'
-import { Camera, Upload, Settings, FileSpreadsheet, Activity } from 'lucide-react'
-import Papa from 'papaparse'
-import { parseTemplate } from './core/templateParser'
-import type { BubblePoint, Template } from './core/templateParser'
-import { processOMR } from './core/omrEngine'
-import './App.css'
+import { useState, useEffect } from 'react';
+import { 
+  Activity, 
+  Layers, 
+  Sliders, 
+  Key, 
+  ShieldCheck, 
+  BarChart3, 
+  Bookmark,
+  Printer
+} from 'lucide-react';
+import type { 
+  Template, 
+  BubblePoint, 
+  EvaluationConfig, 
+  ScanProcessingResult, 
+  StudentScoreCard, 
+  ClassPsychometrics, 
+  AuditLogEntry 
+} from './types/omr';
+import { parseTemplate } from './core/templateParser';
+import { AnalyticsEngine } from './core/analyticsEngine';
+import { PRESET_TEMPLATES } from './data/presetTemplates';
 
-function App() {
-  const [status, setStatus] = useState('Initializing...')
-  const [cvReady, setCvReady] = useState(false)
-  const [template, setTemplate] = useState<Template | null>(null)
-  const [bubbles, setBubbles] = useState<BubblePoint[]>([])
-  const [results, setResults] = useState<Record<string, string[]>>({})
-  
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const imageCanvasRef = useRef<HTMLCanvasElement>(null)
+import { BatchProcessor } from './components/BatchProcessor';
+import { TemplateStudio } from './components/TemplateStudio';
+import { BangladeshOMRGenerator } from './components/BangladeshOMRGenerator';
+import { EvaluationManager } from './components/EvaluationManager';
+import { QualityControlReview } from './components/QualityControlReview';
+import { AnalyticsDashboard } from './components/AnalyticsDashboard';
+import { StudentReportCardModal } from './components/StudentReportCardModal';
 
+import './App.css';
+
+export function App() {
+  const [cvReady, setCvReady] = useState<boolean>(false);
+  const [status, setStatus] = useState<string>('Initializing Computer Vision Core...');
+  const [activeTab, setActiveTab] = useState<'SCANNER' | 'STUDIO' | 'BD_DESIGNER' | 'EVALUATION' | 'QC' | 'ANALYTICS'>(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.toUpperCase().replace('#', '');
+      if (['SCANNER', 'STUDIO', 'BD_DESIGNER', 'EVALUATION', 'QC', 'ANALYTICS'].includes(hash)) {
+        return hash as any;
+      }
+    }
+    return 'SCANNER';
+  });
+
+  const handleTabChange = (tab: 'SCANNER' | 'STUDIO' | 'BD_DESIGNER' | 'EVALUATION' | 'QC' | 'ANALYTICS') => {
+    setActiveTab(tab);
+    if (typeof window !== 'undefined') {
+      window.location.hash = tab.toLowerCase();
+    }
+  };
+
+  // Active Template & Bubbles state
+  const [selectedPresetId, setSelectedPresetId] = useState<string>(PRESET_TEMPLATES[0].id);
+  const [template, setTemplate] = useState<Template | null>(PRESET_TEMPLATES[0].template);
+  const [bubbles, setBubbles] = useState<BubblePoint[]>(() => {
+    try {
+      const parsed = parseTemplate(PRESET_TEMPLATES[0].template);
+      return parsed.bubbles;
+    } catch {
+      return [];
+    }
+  });
+
+  // Active Evaluation Configuration
+  const [evalConfig, setEvalConfig] = useState<EvaluationConfig>(PRESET_TEMPLATES[0].evaluationConfig);
+
+  // Batch Scan Results & Cohort Scorecards
+  const [scanResults, setScanResults] = useState<Record<string, ScanProcessingResult>>({});
+  const [scoreCards, setScoreCards] = useState<StudentScoreCard[]>([]);
+  const [psychometrics, setPsychometrics] = useState<ClassPsychometrics>(() => 
+    AnalyticsEngine.computePsychometrics([])
+  );
+
+  // Scorecard modal state
+  const [printingScoreCard, setPrintingScoreCard] = useState<StudentScoreCard | null>(null);
+
+  // Check OpenCV.js availability
   useEffect(() => {
     const checkCv = setInterval(() => {
       if ((window as any).cv && typeof (window as any).cv.Mat === 'function') {
-        setCvReady(true)
-        setStatus('Ready to scan')
-        clearInterval(checkCv)
+        setCvReady(true);
+        setStatus('OpenCV 4.12 WASM Engine Ready');
+        clearInterval(checkCv);
       }
-    }, 500)
-    return () => clearInterval(checkCv)
-  }, [])
+    }, 400);
+    return () => clearInterval(checkCv);
+  }, []);
 
-  const startCamera = async () => {
+  // Update psychometrics whenever scoreCards change
+  useEffect(() => {
+    const metrics = AnalyticsEngine.computePsychometrics(scoreCards);
+    setPsychometrics(metrics);
+  }, [scoreCards]);
+
+  // Load a preset template
+  const handleSelectPreset = (presetId: string) => {
+    const preset = PRESET_TEMPLATES.find(p => p.id === presetId);
+    if (!preset) return;
+    setSelectedPresetId(preset.id);
+    setTemplate(preset.template);
+    setEvalConfig(preset.evaluationConfig);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        videoRef.current.play()
-        setStatus('Camera active')
-      }
-    } catch (err) {
-      console.error(err)
-      setStatus('Failed to access camera')
+      const parsed = parseTemplate(preset.template);
+      setBubbles(parsed.bubbles);
+      setStatus(`Loaded preset: ${preset.name} (${parsed.bubbles.length} bubbles)`);
+    } catch (err: any) {
+      console.error(err);
+      setStatus('Failed to parse preset template');
     }
-  }
+  };
 
-  const handleTemplateUpload = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      try {
-        const json = JSON.parse(event.target?.result as string)
-        const { bubbles, template } = parseTemplate(json)
-        setTemplate(template)
-        setBubbles(bubbles)
-        setStatus('Template loaded: ' + Object.keys(template.fieldBlocks).length + ' fields')
-      } catch (err: any) {
-        console.error("Template parse error:", err)
-        setStatus('Invalid template format: ' + (err.message || 'unknown error'))
-      }
+  const handleApplyCustomTemplate = (newTemplate: Template) => {
+    setTemplate(newTemplate);
+    try {
+      const parsed = parseTemplate(newTemplate);
+      setBubbles(parsed.bubbles);
+      setStatus(`Applied custom template: ${Object.keys(newTemplate.fieldBlocks).length} blocks, ${parsed.bubbles.length} bubbles`);
+      setActiveTab('SCANNER');
+    } catch (err: any) {
+      console.error(err);
+      setStatus('Failed to apply template: ' + err.message);
     }
-    reader.readAsText(file)
-  }
+  };
 
-  const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const img = new Image()
-    img.onload = async () => {
-      if (!imageCanvasRef.current || !canvasRef.current || !template) {
-        setStatus('Please load template first')
-        return
-      }
-      const ctx = imageCanvasRef.current.getContext('2d')
-      imageCanvasRef.current.width = img.width
-      imageCanvasRef.current.height = img.height
-      ctx?.drawImage(img, 0, 0)
-      
-      setStatus('Processing image...')
-      try {
-        const res = await processOMR(imageCanvasRef.current, template, bubbles, canvasRef.current)
-        setResults(res)
-        setStatus('Processing complete!')
-      } catch (err) {
-        console.error(err)
-        setStatus('Processing failed')
-      }
-    }
-    img.src = URL.createObjectURL(file)
-  }
+  const handleBatchComplete = (
+    newScans: Record<string, ScanProcessingResult>, 
+    newCards: StudentScoreCard[]
+  ) => {
+    setScanResults(newScans);
+    setScoreCards(newCards);
+  };
 
-  const exportResults = () => {
-    if (Object.keys(results).length === 0) return
-    const rows = Object.keys(results).map(key => ({
-      Question: key,
-      Marked: results[key].join(', ') || 'Unmarked'
-    }))
-    const csv = Papa.unparse(rows)
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'omr_results.csv'
-    a.click()
-  }
+  const handleOverrideScoreCard = (
+    sheetId: string, 
+    updatedCard: StudentScoreCard, 
+    _auditEntry: AuditLogEntry
+  ) => {
+    setScoreCards(prev => prev.map(c => c.sheetId === sheetId ? updatedCard : c));
+  };
 
   return (
     <div className="app-container">
+      {/* Enterprise Header */}
       <header className="header animate-fade-in">
         <div className="logo-container">
-          <Activity size={32} color="var(--primary)" />
-          <h1>OMRCracker</h1>
+          <div className="logo-badge">
+            <Activity size={28} color="#a855f7" />
+          </div>
+          <div>
+            <div className="brand-row">
+              <h1>OMRView</h1>
+              <span className="brand-edition">Enterprise Studio</span>
+            </div>
+            <span className="brand-tagline">Optical Mark Recognition & Assessment Intelligence Platform</span>
+          </div>
         </div>
+
+        <div className="header-center-controls">
+          <div className="preset-selector">
+            <Bookmark size={16} />
+            <select 
+              value={selectedPresetId} 
+              onChange={(e) => handleSelectPreset(e.target.value)}
+              className="preset-dropdown"
+            >
+              {PRESET_TEMPLATES.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         <div className="status-badge">
           <span className={`indicator ${cvReady ? 'ready' : 'loading'}`}></span>
           {status}
         </div>
       </header>
 
+      {/* Main Navigation Tabs */}
+      <nav className="enterprise-nav glass-panel animate-fade-in">
+        <button 
+          className={`nav-tab ${activeTab === 'SCANNER' ? 'active' : ''}`}
+          onClick={() => handleTabChange('SCANNER')}
+        >
+          <Layers size={18} />
+          <span>Batch Scan & Grade</span>
+        </button>
+
+        <button 
+          className={`nav-tab ${activeTab === 'STUDIO' ? 'active' : ''}`}
+          onClick={() => handleTabChange('STUDIO')}
+        >
+          <Sliders size={18} />
+          <span>Template Studio</span>
+        </button>
+
+        <button 
+          className={`nav-tab ${activeTab === 'BD_DESIGNER' ? 'active' : ''}`}
+          onClick={() => handleTabChange('BD_DESIGNER')}
+        >
+          <Printer size={18} />
+          <span>🇧🇩 BD OMR Print Designer</span>
+        </button>
+
+        <button 
+          className={`nav-tab ${activeTab === 'EVALUATION' ? 'active' : ''}`}
+          onClick={() => handleTabChange('EVALUATION')}
+        >
+          <Key size={18} />
+          <span>Answer Key & Scheme</span>
+        </button>
+
+        <button 
+          className={`nav-tab ${activeTab === 'QC' ? 'active' : ''}`}
+          onClick={() => handleTabChange('QC')}
+        >
+          <ShieldCheck size={18} />
+          <span>Quality Review (HITL)</span>
+          {scoreCards.some(c => c.needsReview || c.flags.length > 0) && (
+            <span className="nav-badge-alert">
+              {scoreCards.filter(c => c.needsReview || c.flags.length > 0).length}
+            </span>
+          )}
+        </button>
+
+        <button 
+          className={`nav-tab ${activeTab === 'ANALYTICS' ? 'active' : ''}`}
+          onClick={() => handleTabChange('ANALYTICS')}
+        >
+          <BarChart3 size={18} />
+          <span>Cohort Psychometrics</span>
+          {scoreCards.length > 0 && (
+            <span className="nav-badge-count">{scoreCards.length}</span>
+          )}
+        </button>
+      </nav>
+
+      {/* Main View Area */}
       <main className="main-content">
-        <section className="workspace animate-fade-in" style={{ animationDelay: '0.1s' }}>
-          <div className="toolbar">
-            <div className="glass-panel">
-              <h3>Configuration</h3>
-              <label className="btn btn-primary">
-                <Settings size={20} />
-                Load Template
-                <input type="file" accept=".json" hidden onChange={handleTemplateUpload} />
-              </label>
-              <label className={`btn btn-outline ${!template ? 'opacity-50 pointer-events-none' : ''}`}>
-                <Upload size={20} />
-                Upload Scan
-                <input type="file" accept="image/*" hidden onChange={handleImageUpload} disabled={!template} />
-              </label>
-            </div>
-            
-            <div className="glass-panel">
-              <h3>Capture</h3>
-              <button className="btn btn-outline" onClick={startCamera}>
-                <Camera size={20} />
-                Start Camera
-              </button>
-            </div>
+        {activeTab === 'SCANNER' && (
+          <BatchProcessor 
+            template={template}
+            bubbles={bubbles}
+            evaluationConfig={evalConfig}
+            scanResults={scanResults}
+            scoreCards={scoreCards}
+            onBatchComplete={handleBatchComplete}
+            onSelectScoreCardForPrint={(card) => setPrintingScoreCard(card)}
+            onNavigateToQC={() => setActiveTab('QC')}
+          />
+        )}
 
-            {Object.keys(results).length > 0 && (
-              <div className="glass-panel animate-fade-in">
-                <h3>Results Data</h3>
-                <button className="btn btn-primary" style={{ width: '100%', marginBottom: '1rem' }} onClick={exportResults}>
-                  <FileSpreadsheet size={20} />
-                  Export CSV
-                </button>
-                <div className="results-grid">
-                  {Object.keys(results).slice(0, 8).map(key => (
-                    <div key={key} className="result-item">
-                      <span className="result-label">{key}</span>
-                      <span className="result-value">{results[key].join(', ') || '-'}</span>
-                    </div>
-                  ))}
-                  {Object.keys(results).length > 8 && (
-                    <div className="result-item" style={{ opacity: 0.7 }}>
-                      <span className="result-label">...</span>
-                      <span className="result-value">+{Object.keys(results).length - 8} more</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+        {activeTab === 'STUDIO' && (
+          <TemplateStudio 
+            initialTemplate={template}
+            onApplyTemplate={handleApplyCustomTemplate}
+          />
+        )}
 
-          <div className="glass-panel" style={{ padding: '1rem', display: 'flex', flexDirection: 'column' }}>
-            <div className="preview-area">
-              <canvas ref={imageCanvasRef} style={{ display: 'none' }}></canvas>
-              <canvas ref={canvasRef} className="overlay-canvas"></canvas>
-              {!template && (
-                <div className="placeholder-text">
-                  <Settings className="placeholder-icon" />
-                  <span>Start by loading a Template JSON</span>
-                </div>
-              )}
-              {template && Object.keys(results).length === 0 && (
-                <div className="placeholder-text">
-                  <Upload className="placeholder-icon" />
-                  <span>Upload a scan or use camera</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
+        {activeTab === 'BD_DESIGNER' && (
+          <BangladeshOMRGenerator 
+            onApplyGeneratedTemplate={handleApplyCustomTemplate}
+            onNavigateToScanner={() => setActiveTab('SCANNER')}
+          />
+        )}
+
+        {activeTab === 'EVALUATION' && (
+          <EvaluationManager 
+            config={evalConfig}
+            template={template}
+            bubbles={bubbles}
+            onUpdateConfig={(newConfig) => setEvalConfig(newConfig)}
+          />
+        )}
+
+        {activeTab === 'QC' && (
+          <QualityControlReview 
+            scoreCards={scoreCards}
+            scanResults={scanResults}
+            onOverrideScoreCard={handleOverrideScoreCard}
+          />
+        )}
+
+        {activeTab === 'ANALYTICS' && (
+          <AnalyticsDashboard 
+            scoreCards={scoreCards}
+            psychometrics={psychometrics}
+          />
+        )}
       </main>
+
+      {/* Official Student Scorecard Modal */}
+      {printingScoreCard && (
+        <StudentReportCardModal 
+          scoreCard={printingScoreCard}
+          config={evalConfig}
+          onClose={() => setPrintingScoreCard(null)}
+        />
+      )}
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

@@ -1,33 +1,8 @@
-export interface Template {
-  pageDimensions: [number, number];
-  bubbleDimensions: [number, number];
-  fieldBlocks: Record<string, FieldBlock>;
-  customLabels?: Record<string, string[]>;
-  outputColumns?: string[];
-  emptyValue?: string;
-  preProcessors?: any[];
-}
+import type { BubblePoint, FieldBlock, Template, QuestionType } from '../types/omr';
 
-export interface FieldBlock {
-  fieldType?: string; // e.g. QTYPE_MCQ4, QTYPE_INT
-  origin: [number, number];
-  fieldLabels: string[];
-  bubblesGap: number;
-  labelsGap: number;
-  bubbleValues?: string[];
-  direction?: string;
-  bubbleDimensions?: [number, number];
-  emptyValue?: string;
-}
+export type { BubblePoint, FieldBlock, Template, QuestionType };
 
-export interface BubblePoint {
-  x: number;
-  y: number;
-  label: string;
-  value: string;
-}
-
-const FIELD_TYPES: Record<string, any> = {
+export const FIELD_TYPES: Record<string, { bubbleValues: string[]; direction: 'horizontal' | 'vertical' }> = {
   QTYPE_INT: {
     bubbleValues: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
     direction: "vertical",
@@ -36,7 +11,10 @@ const FIELD_TYPES: Record<string, any> = {
     bubbleValues: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
     direction: "vertical",
   },
-  QTYPE_MCQ4: { bubbleValues: ["A", "B", "C", "D"], direction: "horizontal" },
+  QTYPE_MCQ4: {
+    bubbleValues: ["A", "B", "C", "D"],
+    direction: "horizontal",
+  },
   QTYPE_MCQ5: {
     bubbleValues: ["A", "B", "C", "D", "E"],
     direction: "horizontal",
@@ -51,21 +29,20 @@ const FIELD_TYPES: Record<string, any> = {
   },
 };
 
-const TEMPLATE_DEFAULTS = {
-  preProcessors: [],
+export const TEMPLATE_DEFAULTS = {
+  preProcessors: [{ name: 'CropOnMarkers' }],
   emptyValue: "",
   customLabels: {},
   outputColumns: [],
 };
 
-function parseFieldString(fieldString: string): string[] {
+export function parseFieldString(fieldString: string): string[] {
   if (fieldString.includes('..')) {
-    // Regex matching python's r"([^\.\d]+)(\d+)\.{2,3}(\d+)"
-    const match = fieldString.match(/([^.\d]+)(\d+)\.{2,3}(\d+)/);
+    const match = fieldString.match(/([^.\d]*)(\d+)\.{2,3}(\d+)/);
     if (!match) {
       throw new Error(`Invalid range in fields string: '${fieldString}'`);
     }
-    const prefix = match[1];
+    const prefix = match[1] || '';
     const start = parseInt(match[2], 10);
     const end = parseInt(match[3], 10);
     if (start >= end) {
@@ -80,7 +57,7 @@ function parseFieldString(fieldString: string): string[] {
   return [fieldString];
 }
 
-function parseFields(fieldLabels: string[]): string[] {
+export function parseFields(fieldLabels: string[]): string[] {
   const parsedFields: string[] = [];
   const fieldsSet = new Set<string>();
 
@@ -97,13 +74,27 @@ function parseFields(fieldLabels: string[]): string[] {
   return parsedFields;
 }
 
-export function parseTemplate(templateData: any): { bubbles: BubblePoint[], template: Template } {
+export function parseTemplate(templateData: any): { bubbles: BubblePoint[]; template: Template } {
+  if (!templateData || typeof templateData !== 'object') {
+    throw new Error('Template data must be a valid JSON object');
+  }
+
+  if (!templateData.pageDimensions || !Array.isArray(templateData.pageDimensions) || templateData.pageDimensions.length !== 2) {
+    throw new Error('Invalid or missing pageDimensions (expected [width, height])');
+  }
+
+  if (!templateData.bubbleDimensions || !Array.isArray(templateData.bubbleDimensions) || templateData.bubbleDimensions.length !== 2) {
+    throw new Error('Invalid or missing bubbleDimensions (expected [width, height])');
+  }
+
+  if (!templateData.fieldBlocks || typeof templateData.fieldBlocks !== 'object') {
+    throw new Error('Invalid or missing fieldBlocks dictionary');
+  }
+
   const bubbles: BubblePoint[] = [];
-  
-  // Merge defaults
   const template: Template = {
     ...TEMPLATE_DEFAULTS,
-    ...templateData
+    ...templateData,
   };
 
   const globalEmptyVal = template.emptyValue || "";
@@ -111,31 +102,28 @@ export function parseTemplate(templateData: any): { bubbles: BubblePoint[], temp
   for (const blockName in template.fieldBlocks) {
     let block = template.fieldBlocks[blockName];
 
-    // Pre-fill field block
     if (block.fieldType && FIELD_TYPES[block.fieldType]) {
       block = {
         ...FIELD_TYPES[block.fieldType],
-        ...block
+        ...block,
       };
-    } else if (!block.fieldType) {
-      block = { ...block, fieldType: "__CUSTOM__" };
     }
 
     block = {
-      direction: "vertical",
+      direction: "horizontal",
       emptyValue: globalEmptyVal,
       bubbleDimensions: template.bubbleDimensions,
-      ...block
+      ...block,
     };
 
-    const parsedFieldLabels = parseFields(block.fieldLabels);
+    const parsedFieldLabels = parseFields(block.fieldLabels || []);
     const bubbleValues = block.bubbleValues || [];
     const direction = block.direction;
     const h = direction === "vertical" ? 1 : 0;
     const v = direction === "vertical" ? 0 : 1;
     const bubblesGap = block.bubblesGap;
     const labelsGap = block.labelsGap;
-    
+
     let leadPoint = [block.origin[0], block.origin[1]];
 
     for (const fieldLabel of parsedFieldLabels) {
@@ -145,7 +133,8 @@ export function parseTemplate(templateData: any): { bubbles: BubblePoint[], temp
           x: Math.round(bubblePoint[0]),
           y: Math.round(bubblePoint[1]),
           label: fieldLabel,
-          value: bubbleValue
+          value: bubbleValue,
+          section: block.section || blockName,
         });
         bubblePoint[h] += bubblesGap;
       }
@@ -153,12 +142,45 @@ export function parseTemplate(templateData: any): { bubbles: BubblePoint[], temp
     }
   }
 
-  // Parse custom labels mapping so that evaluation can concatenate
+  const normalizedCustomLabels: Record<string, string[]> = {};
   if (template.customLabels) {
     for (const [key, val] of Object.entries(template.customLabels)) {
-      template.customLabels[key] = parseFields(val);
+      normalizedCustomLabels[key] = parseFields(val);
+    }
+  }
+  template.customLabels = normalizedCustomLabels;
+
+  return { bubbles, template };
+}
+
+export function serializeTemplate(template: Template): string {
+  return JSON.stringify(template, null, 2);
+}
+
+export function resolveConcatenatedFields(
+  rawResponses: Record<string, string[]>,
+  customLabels?: Record<string, string[]>,
+  emptyValue: string = ""
+): Record<string, string> {
+  const result: Record<string, string> = {};
+
+  for (const [key, values] of Object.entries(rawResponses)) {
+    result[key] = values.length > 1 ? `[${values.join('/')}]` : (values[0] || '');
+  }
+
+  if (customLabels) {
+    for (const [groupName, rawList] of Object.entries(customLabels)) {
+      // Auto-expand any unexpanded field strings like "roll1..7"
+      const expandedList = parseFields(Array.isArray(rawList) ? rawList : [rawList]);
+      const combined = expandedList.map(field => {
+        const val = rawResponses[field];
+        if (!val || val.length === 0) return emptyValue;
+        if (val.length === 1) return val[0];
+        return `[${val.join('/')}]`; // Visibly flag multi-marked digit without breaking string layout
+      }).join('');
+      result[groupName] = combined;
     }
   }
 
-  return { bubbles, template };
+  return result;
 }
