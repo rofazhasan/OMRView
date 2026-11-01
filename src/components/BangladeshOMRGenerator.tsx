@@ -786,9 +786,6 @@ export function BangladeshOMRGenerator({
               {[...Array(25)].map((_, i) => <div key={i} className="timing-block"></div>)}
             </div>
 
-            {/* Bottom Optical Registration Bar */}
-            <div className="timing-marker-bottom-center"></div>
-
             {/* Sheet Header Area */}
             <div className="sheet-header">
               <div className="header-year-row">
@@ -1214,6 +1211,9 @@ export function BangladeshOMRGenerator({
                 </div>
               </div>
             )}
+
+            {/* Bottom Optical Registration Bar */}
+            <div className="timing-marker-bottom-center"></div>
           </div>
         </div>
       </div>

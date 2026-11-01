@@ -2948,51 +2948,158 @@
     max-width: 210mm !important;
     max-height: 297mm !important;
     margin: 0 auto !important;
-    padding: 7mm 10mm !important;
+    padding: 8mm 14mm 14mm 14mm !important;
     box-sizing: border-box !important;
     box-shadow: none !important;
     border: none !important;
     overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
   }
 
-  /* Symmetrical Optical Fiducial Corner Markers */
+  /* Compact header for print to ensure generous vertical clearance for questions */
+  .bd-omr-printable-sheet .sheet-header {
+    margin-bottom: 3px !important;
+  }
+
+  .bd-omr-printable-sheet .exam-main-title {
+    font-size: 16px !important;
+    margin-bottom: 2px !important;
+  }
+
+  .bd-omr-printable-sheet .warning-banner-top {
+    font-size: 10.5px !important;
+    padding: 1.5px 14px !important;
+    margin: 1.5px auto !important;
+  }
+
+  .bd-omr-printable-sheet .pen-instruction-banner {
+    font-size: 11px !important;
+    padding: 1px 16px !important;
+    margin: 1.5px auto 0 auto !important;
+  }
+
+  /* Calibrated Grid Heights to Guarantee Zero Overlap with Bottom Markers */
+  .bd-omr-printable-sheet .sheet-content-grid.split-layout {
+    height: 865px !important;
+    max-height: 865px !important;
+    margin-top: 3px !important;
+    gap: 10px !important;
+  }
+
+  .bd-omr-printable-sheet .split-layout .questions-layout-area {
+    width: 388px !important;
+    gap: 6px !important;
+  }
+
+  .bd-omr-printable-sheet .split-layout .identity-and-rules-area {
+    gap: 5px !important;
+  }
+
+  .bd-omr-printable-sheet .official-instructions-section {
+    padding: 4px 6px !important;
+    gap: 3px !important;
+  }
+
+  .bd-omr-printable-sheet .rules-heading-title {
+    font-size: 12px !important;
+    margin-bottom: 2px !important;
+  }
+
+  .bd-omr-printable-sheet .rule-text {
+    font-size: 10.5px !important;
+    line-height: 1.3 !important;
+  }
+
+  .bd-omr-printable-sheet .board-compliance-footer {
+    font-size: 8.5px !important;
+    padding-top: 2px !important;
+  }
+
+  /* Stacked Mode Height Scaling */
+  .bd-omr-printable-sheet .sheet-content-grid.stacked-layout {
+    height: 865px !important;
+    max-height: 865px !important;
+    margin-top: 3px !important;
+    gap: 6px !important;
+  }
+
+  .bd-omr-printable-sheet .admission-top-id-band {
+    height: 220px !important;
+    max-height: 220px !important;
+  }
+
+  .bd-omr-printable-sheet .questions-layout-area.full-width {
+    height: 635px !important;
+  }
+
+  /* Symmetrical Optical Fiducial Corner Markers (Never Collide with Content) */
+  .bd-omr-printable-sheet .fiducial-marker {
+    width: 22px !important;
+    height: 22px !important;
+    z-index: 20 !important;
+  }
+  .bd-omr-printable-sheet .marker-cross-circle {
+    width: 18px !important;
+    height: 18px !important;
+  }
+  .bd-omr-printable-sheet .cross-line-h {
+    width: 22px !important;
+  }
+  .bd-omr-printable-sheet .cross-line-v {
+    height: 22px !important;
+  }
+
   .bd-omr-printable-sheet .fiducial-marker.top-left {
-    top: 5mm !important;
-    left: 5mm !important;
+    top: 6mm !important;
+    left: 6mm !important;
     right: auto !important;
     bottom: auto !important;
   }
   .bd-omr-printable-sheet .fiducial-marker.top-right {
-    top: 5mm !important;
-    right: 5mm !important;
+    top: 6mm !important;
+    right: 6mm !important;
     left: auto !important;
     bottom: auto !important;
   }
   .bd-omr-printable-sheet .fiducial-marker.bottom-left {
-    bottom: 5mm !important;
-    left: 5mm !important;
+    bottom: 6mm !important;
+    left: 6mm !important;
     top: auto !important;
     right: auto !important;
   }
   .bd-omr-printable-sheet .fiducial-marker.bottom-right {
-    bottom: 5mm !important;
-    right: 5mm !important;
+    bottom: 6mm !important;
+    right: 6mm !important;
     top: auto !important;
     left: auto !important;
   }
 
-  /* Symmetrical Optical Timing Tracks (Clocking Bars) */
+  /* Symmetrical Lateral Timing Tracks (Isolated Between Markers and Content) */
+  .bd-omr-printable-sheet .timing-tracks {
+    top: 36mm !important;
+    bottom: 22mm !important;
+    width: 10px !important;
+  }
   .bd-omr-printable-sheet .timing-tracks.left {
-    left: 5mm !important;
+    left: 7.5mm !important;
     right: auto !important;
   }
   .bd-omr-printable-sheet .timing-tracks.right {
-    right: 5mm !important;
+    right: 7.5mm !important;
     left: auto !important;
+  }
+  .bd-omr-printable-sheet .timing-block {
+    width: 10px !important;
+    height: 3px !important;
   }
 
   /* Bottom Optical Registration Bar */
   .bd-omr-printable-sheet .timing-marker-bottom-center {
+    width: 34px !important;
+    height: 4.5px !important;
+    background: #000000 !important;
     margin: 2mm auto 0 auto !important;
   }
 
