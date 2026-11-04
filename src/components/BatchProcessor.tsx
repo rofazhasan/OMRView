@@ -30,6 +30,7 @@ import { processOMR } from '../core/omrEngine';
 import { EvaluationEngine } from '../core/evaluationEngine';
 import { parseTemplate } from '../core/templateParser';
 import { PRESET_TEMPLATES } from '../data/presetTemplates';
+import { renderPdfToCanvases } from '../utils/pdfLoader';
 import Papa from 'papaparse';
 
 interface BatchProcessorProps {
@@ -87,43 +88,75 @@ export function BatchProcessor({
     const activeBubbles: BubblePoint[] = (bubbles && bubbles.length > 0) ? bubbles : parseTemplate(activeTemplate).bubbles;
 
     setIsProcessing(true);
-    setProgress({ current: 0, total: files.length });
-    setStatusMessage(`Starting batch processing of ${files.length} sheets...`);
+    setStatusMessage(`Preparing files and document pages for scanning...`);
 
     const newScanResults = { ...scanResults };
     const newScoreCards: StudentScoreCard[] = [...scoreCards];
     const evalEngine = new EvaluationEngine(evaluationConfig);
-    const offscreenCanvas = document.createElement('canvas');
+
+    const itemsToProcess: { canvas: HTMLCanvasElement; name: string }[] = [];
+
+    try {
+      for (const file of files) {
+        if (file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf') {
+          const isMasterExam = file.name.toLowerCase().includes('medical') || 
+                               file.name.toLowerCase().includes('master') ||
+                               activeTemplate.pageDimensions[0] === 1060;
+          const rendered = await renderPdfToCanvases(file, {
+            dpi: 150,
+            oddPagesOnly: isMasterExam,
+          });
+          for (const item of rendered) {
+            itemsToProcess.push({
+              canvas: item.canvas,
+              name: `${file.name} (P.${item.pageNumber})`,
+            });
+          }
+        } else {
+          const img = await loadImageFromFile(file);
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0);
+          itemsToProcess.push({
+            canvas,
+            name: file.name,
+          });
+        }
+      }
+    } catch (err: any) {
+      console.error('Error unpacking batch documents:', err);
+      setStatusMessage(`Failed to read input files: ${err.message}`);
+      setIsProcessing(false);
+      return;
+    }
+
+    setProgress({ current: 0, total: itemsToProcess.length });
+    setStatusMessage(`Starting batch processing of ${itemsToProcess.length} sheets...`);
 
     let successCount = 0;
     let failCount = 0;
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      setProgress({ current: i + 1, total: files.length });
-      // Yield to browser event loop to keep UI at 60 FPS
+    for (let i = 0; i < itemsToProcess.length; i++) {
+      const item = itemsToProcess[i];
+      setProgress({ current: i + 1, total: itemsToProcess.length });
       await new Promise(resolve => setTimeout(resolve, 16));
 
       try {
-        const img = await loadImageFromFile(file);
-        offscreenCanvas.width = img.width;
-        offscreenCanvas.height = img.height;
-        const ctx = offscreenCanvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0);
-
         const scanRes = await processOMR(
-          offscreenCanvas,
+          item.canvas,
           activeTemplate,
           activeBubbles,
           overlayCanvasRef.current || undefined,
-          file.name
+          item.name
         );
 
         newScanResults[scanRes.sheetId] = scanRes;
 
         const scoreCard = evalEngine.evaluateCandidate(
           scanRes.sheetId,
-          file.name,
+          item.name,
           scanRes.responses,
           scanRes.concatenatedResponses,
           scanRes.flags
@@ -133,7 +166,7 @@ export function BatchProcessor({
         setActivePreviewSheetId(scanRes.sheetId);
         successCount++;
       } catch (err: any) {
-        console.error(`Error processing file ${file.name}:`, err);
+        console.error(`Error processing file ${item.name}:`, err);
         failCount++;
       }
     }
@@ -180,6 +213,7 @@ export function BatchProcessor({
     // Auto-select corresponding realistic test scans based on active template schema
     const isSample6 = activeTemplate.pageDimensions[1] === 3508 || !!activeTemplate.fieldBlocks?.Stu;
     const isSample1 = activeTemplate.pageDimensions[0] === 1846;
+    const isMedical = activeTemplate.pageDimensions[0] === 1060 || activeTemplate.fieldBlocks?.QPart1_Col1 !== undefined;
 
     let demoFiles = [
       { name: 'bd_hsc_sample_01.png', url: '/samples/bd_hsc_sample_01.png' },
@@ -187,7 +221,11 @@ export function BatchProcessor({
       { name: 'bd_hsc_sample_03.png', url: '/samples/bd_hsc_sample_03.png' },
     ];
 
-    if (isSample6) {
+    if (isMedical) {
+      demoFiles = [
+        { name: 'MT-01_Medical_Filled_Sample.png', url: '/samples/medical_exam_filled_sample1.png' },
+      ];
+    } else if (isSample6) {
       demoFiles = [
         { name: 'sample_roll_01.jpg', url: '/samples/sample_roll_01.jpg' },
         { name: 'sample_roll_02.jpg', url: '/samples/sample_roll_02.jpg' },
@@ -457,10 +495,10 @@ export function BatchProcessor({
           </button>
           <label className={`btn btn-outline ${!template ? 'opacity-50 pointer-events-none' : ''}`}>
             <Layers size={18} />
-            <span>Bulk Upload</span>
+            <span>Bulk Upload (Images/PDFs)</span>
             <input 
               type="file" 
-              accept="image/*" 
+              accept="image/*,application/pdf,.pdf" 
               multiple 
               hidden 
               onChange={handleMultipleFilesUpload} 

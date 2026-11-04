@@ -10,6 +10,71 @@ export interface PresetData {
 
 export const PRESET_TEMPLATES: PresetData[] = [
   {
+    id: 'medical_admission_100q',
+    name: '🩺 Medical Admission Model Test (100 Qs - MT-01 to MT-13)',
+    description: 'Standard 100-Question Bangladesh Medical & Dental Admission format with 7-digit Roll Number, 6-digit Serial Number, and 100 MCQs (4 choices: A, B, C, D). Supports full Master exam PDFs or individual cropped OMR scans.',
+    template: {
+      pageDimensions: [1060, 2034],
+      bubbleDimensions: [20, 20],
+      preProcessors: [{ name: 'CropLeftOMRSpread' }, { name: 'DirectPass' }],
+      customLabels: {
+        Roll: ['roll1..7'],
+        Serial: ['serial1..6'],
+      },
+      fieldBlocks: {
+        Roll: {
+          origin: [64, 400],
+          bubblesGap: 42.44,
+          labelsGap: 28.38,
+          fieldType: 'QTYPE_INT',
+          direction: 'vertical',
+          fieldLabels: ['roll1..7'],
+          section: 'Roll Number',
+        },
+        Serial: {
+          origin: [315, 400],
+          bubblesGap: 42.44,
+          labelsGap: 28.38,
+          fieldType: 'QTYPE_INT',
+          direction: 'vertical',
+          fieldLabels: ['serial1..6'],
+          section: 'Serial Number',
+        },
+        QPart1_Col1: { origin: [111, 1147], bubblesGap: 28.65, labelsGap: 26.92, fieldType: 'QTYPE_MCQ4', direction: 'horizontal', fieldLabels: ['q1..10'], bubbleValues: ['A','B','C','D'], section: 'Part 1 (Q01-10)' },
+        QPart1_Col2: { origin: [311, 1147], bubblesGap: 28.65, labelsGap: 26.92, fieldType: 'QTYPE_MCQ4', direction: 'horizontal', fieldLabels: ['q11..20'], bubbleValues: ['A','B','C','D'], section: 'Part 1 (Q11-20)' },
+        QPart1_Col3: { origin: [511, 1147], bubblesGap: 28.65, labelsGap: 26.92, fieldType: 'QTYPE_MCQ4', direction: 'horizontal', fieldLabels: ['q21..30'], bubbleValues: ['A','B','C','D'], section: 'Part 1 (Q21-30)' },
+        QPart1_Col4: { origin: [711, 1147], bubblesGap: 28.65, labelsGap: 26.92, fieldType: 'QTYPE_MCQ4', direction: 'horizontal', fieldLabels: ['q31..40'], bubbleValues: ['A','B','C','D'], section: 'Part 1 (Q31-40)' },
+        QPart1_Col5: { origin: [911, 1147], bubblesGap: 28.65, labelsGap: 26.92, fieldType: 'QTYPE_MCQ4', direction: 'horizontal', fieldLabels: ['q41..50'], bubbleValues: ['A','B','C','D'], section: 'Part 1 (Q41-50)' },
+
+        QPart2_Col1: { origin: [111, 1583], bubblesGap: 28.65, labelsGap: 26.92, fieldType: 'QTYPE_MCQ4', direction: 'horizontal', fieldLabels: ['q51..60'], bubbleValues: ['A','B','C','D'], section: 'Part 2 (Q51-60)' },
+        QPart2_Col2: { origin: [311, 1583], bubblesGap: 28.65, labelsGap: 26.92, fieldType: 'QTYPE_MCQ4', direction: 'horizontal', fieldLabels: ['q61..70'], bubbleValues: ['A','B','C','D'], section: 'Part 2 (Q61-70)' },
+        QPart2_Col3: { origin: [511, 1583], bubblesGap: 28.65, labelsGap: 26.92, fieldType: 'QTYPE_MCQ4', direction: 'horizontal', fieldLabels: ['q71..80'], bubbleValues: ['A','B','C','D'], section: 'Part 2 (Q71-80)' },
+        QPart2_Col4: { origin: [711, 1583], bubblesGap: 28.65, labelsGap: 26.92, fieldType: 'QTYPE_MCQ4', direction: 'horizontal', fieldLabels: ['q81..90'], bubbleValues: ['A','B','C','D'], section: 'Part 2 (Q81-90)' },
+        QPart2_Col5: { origin: [911, 1583], bubblesGap: 28.65, labelsGap: 26.92, fieldType: 'QTYPE_MCQ4', direction: 'horizontal', fieldLabels: ['q91..100'], bubbleValues: ['A','B','C','D'], section: 'Part 2 (Q91-100)' },
+      },
+    },
+    evaluationConfig: {
+      examName: 'Medical Admission Model Test (100 MCQs)',
+      examCode: 'ROFAZ-MED-100',
+      rollNumberField: 'Roll',
+      markingSchemes: {
+        default: { correct: 1.0, incorrect: -0.25, unmarked: 0, bonus: 1.0 },
+      },
+      answerKey: {
+        q1: 'A', q2: 'B', q3: 'C', q4: 'D', q5: 'A', q6: 'B', q7: 'C', q8: 'D', q9: 'A', q10: 'B',
+        q11: 'C', q12: 'D', q13: 'A', q14: 'B', q15: 'C', q16: 'D', q17: 'A', q18: 'B', q19: 'C', q20: 'D',
+        q21: 'A', q22: 'B', q23: 'C', q24: 'D', q25: 'A', q26: 'B', q27: 'C', q28: 'D', q29: 'A', q30: 'B',
+        q31: 'C', q32: 'D', q33: 'A', q34: 'B', q35: 'C', q36: 'D', q37: 'A', q38: 'B', q39: 'C', q40: 'D',
+        q41: 'A', q42: 'B', q43: 'C', q44: 'D', q45: 'A', q46: 'B', q47: 'C', q48: 'D', q49: 'A', q50: 'B',
+        q51: 'C', q52: 'D', q53: 'A', q54: 'B', q55: 'C', q56: 'D', q57: 'A', q58: 'B', q59: 'C', q60: 'D',
+        q61: 'A', q62: 'B', q63: 'C', q64: 'D', q65: 'A', q66: 'B', q67: 'C', q68: 'D', q69: 'A', q70: 'B',
+        q71: 'C', q72: 'D', q73: 'A', q74: 'B', q75: 'C', q76: 'D', q77: 'A', q78: 'B', q79: 'C', q80: 'D',
+        q81: 'A', q82: 'B', q83: 'C', q84: 'D', q85: 'A', q86: 'B', q87: 'C', q88: 'D', q89: 'A', q90: 'B',
+        q91: 'C', q92: 'D', q93: 'A', q94: 'B', q95: 'C', q96: 'D', q97: 'A', q98: 'B', q99: 'C', q100: 'D',
+      },
+    },
+  },
+  {
     id: 'bangladesh_board_hsc',
     name: '🇧🇩 Bangladesh HSC / SSC Board (50 Qs)',
     description: 'Official Bangladesh Education Board standard format with 6-digit Roll, 10-digit Registration, 3-digit Subject Code, Set Code (ক, খ, গ, ঘ) and 50 MCQs.',

@@ -36,18 +36,43 @@ function alignDocument(src: any, template: Template): { warped: any; markersDete
   }
 
   const useMarkers = template.preProcessors?.some(p => p.name === 'CropOnMarkers') ?? true;
+  const isDirectPass = template.preProcessors?.some(p => p.name === 'DirectPass' || p.name === 'NoWarp');
   let markersDetected = false;
   let skewAngle = 0;
 
-  const h = src.rows;
-  const w = src.cols;
+  // Auto-Crop 2-up Landscape Spread (e.g. Master PDF pages where OMR is on the left half)
+  let activeSrc = src.clone();
+  const isLandscapeSpread = (activeSrc.cols > activeSrc.rows * 1.15) && (targetW < targetH);
+  const shouldCropLeft = template.preProcessors?.some(p => p.name === 'CropLeftOMRSpread') || isLandscapeSpread;
+
+  if (shouldCropLeft && activeSrc.cols > targetW * 1.1) {
+    const cropW = Math.min(activeSrc.cols, Math.round(activeSrc.cols * (510 / 1435)));
+    let cropRect = new cv.Rect(0, 0, cropW, activeSrc.rows);
+    let cropped = activeSrc.roi(cropRect);
+    let newSrc = cropped.clone();
+    cropped.delete();
+    activeSrc.delete();
+    activeSrc = newSrc;
+  }
+
+  const h = activeSrc.rows;
+  const w = activeSrc.cols;
+
+  // Direct Pass: If template specifies DirectPass/NoWarp, or if digital scan already exactly matches target dimensions without marker alignment
+  if (isDirectPass || (w === targetW && h === targetH && !template.preProcessors?.some(p => p.name === 'CropOnMarkers'))) {
+    warped = activeSrc.clone();
+    activeSrc.delete();
+    gray.delete();
+    return { warped, markersDetected: true, skewAngle: 0 };
+  }
 
   // 1. Orientation check: Auto-orient if aspect ratio is inverted (e.g. rotated mobile scan)
-  let orientedSrc = src.clone();
+  let orientedSrc = activeSrc.clone();
   if ((targetW > targetH && w < h) || (targetW < targetH && w > h)) {
-    cv.rotate(src, orientedSrc, cv.ROTATE_90_CLOCKWISE);
+    cv.rotate(activeSrc, orientedSrc, cv.ROTATE_90_CLOCKWISE);
     skewAngle = 90;
   }
+  activeSrc.delete();
 
   const curW = orientedSrc.cols;
   const curH = orientedSrc.rows;
@@ -476,27 +501,27 @@ export async function processOMR(
         // (A) COLUMN-CONSTRAINED SOFTMAX MAXIMUM A POSTERIORI (MAP)
         // -------------------------------------------------------------
         // In a 10-digit column, 9 bubbles represent baseline paper.
-        // The intended digit minimizes energy E(d) = I_core(d) - median(I)
+        // A filled bubble exhibits marked drop in intensity (gap >= 25 or mean < 165).
         const isDigitMarked = 
-          (gapToMedian >= 12) ||
-          (gapToMedian >= 8 && (deltaE >= 4 || (minB.fillRatio && minB.fillRatio >= 0.22))) ||
-          (minB.meanVal < globalThreshold && gapToMedian >= 7);
+          (gapToMedian >= 30) ||
+          (minB.meanVal < 165 && gapToMedian >= 20) ||
+          (minB.meanVal < globalThreshold && gapToMedian >= 18 && (minB.fillRatio && minB.fillRatio >= 0.40));
 
         if (isDigitMarked) {
           minB.isMarked = true;
-          const confidenceScore = Math.min(0.999, Math.max(0.75, (gapToMedian / 24) * 0.6 + (minB.fillRatio || 0.4) * 0.4));
+          const confidenceScore = Math.min(0.999, Math.max(0.75, (gapToMedian / 40) * 0.6 + (minB.fillRatio || 0.4) * 0.4));
           minB.confidence = parseFloat(confidenceScore.toFixed(3));
           responses[lbl] = [minB.value];
 
           // Collision vs. Erasure discrimination based on secondary energy log-odds
           const secondGapToMedian = medianVal - secondB.meanVal;
-          if (deltaE <= 4 && secondGapToMedian >= 11) {
+          if (deltaE <= 10 && secondGapToMedian >= 25 && secondB.meanVal < 165) {
             // Both bubbles are genuinely dark -> True Multi-Mark Anomaly
             secondB.isMarked = true;
-            secondB.confidence = parseFloat(Math.min(0.99, secondGapToMedian / 26).toFixed(3));
+            secondB.confidence = parseFloat(Math.min(0.99, secondGapToMedian / 35).toFixed(3));
             responses[lbl].push(secondB.value);
             flags.push(`Multiple digits filled in ${lbl}: [${minB.value}, ${secondB.value}]`);
-          } else if (secondGapToMedian >= 7 && deltaE >= 5) {
+          } else if (secondGapToMedian >= 18 && deltaE >= 14) {
             // Secondary bubble is an erased stroke -> Accept primary, log subtle audit note
             flags.push(`Incomplete erasure in ${lbl} (Selected '${minB.value}' [contrast ${Math.round(gapToMedian)}] over erased '${secondB.value}')`);
           }
@@ -513,15 +538,14 @@ export async function processOMR(
       const zContrast = gapToMedian / (1.4826 * mad + 1.0);
 
       const isOptionMarked = 
-        (zContrast >= 2.4 && gapToMedian >= 8) ||
-        (gapToMedian >= 13) ||
-        (gapToMedian >= 9 && (deltaE >= 4 || minB.meanVal <= 185)) || 
-        (minB.fillRatio && minB.fillRatio >= 0.22 && gapToMedian >= 8) ||
-        (minB.meanVal < globalThreshold && gapToMedian >= 9);
+        (gapToMedian >= 35) ||
+        (minB.meanVal < 165 && gapToMedian >= 22) ||
+        (minB.fillRatio && minB.fillRatio >= 0.40 && gapToMedian >= 18) ||
+        (zContrast >= 3.0 && gapToMedian >= 22 && minB.meanVal < 175);
 
       if (isOptionMarked) {
         minB.isMarked = true;
-        const confidenceScore = Math.min(0.999, Math.max(0.70, (gapToMedian / 26) * 0.65 + (minB.fillRatio || 0.4) * 0.35));
+        const confidenceScore = Math.min(0.999, Math.max(0.70, (gapToMedian / 45) * 0.65 + (minB.fillRatio || 0.4) * 0.35));
         minB.confidence = parseFloat(confidenceScore.toFixed(3));
         responses[lbl] = [minB.value];
 
@@ -530,18 +554,17 @@ export async function processOMR(
           const sibling = group[i];
           const diffToMin = sibling.meanVal - minB.meanVal;
           const siblingGapToMedian = medianVal - sibling.meanVal;
-          const siblingZ = siblingGapToMedian / (1.4826 * mad + 1.0);
 
-          if (diffToMin <= 5 && (siblingGapToMedian >= 12 || siblingZ >= 2.2)) {
+          if (diffToMin <= 10 && siblingGapToMedian >= 22 && sibling.meanVal < 165) {
             sibling.isMarked = true;
-            sibling.confidence = parseFloat(Math.min(0.99, siblingGapToMedian / 28).toFixed(3));
+            sibling.confidence = parseFloat(Math.min(0.99, siblingGapToMedian / 35).toFixed(3));
             responses[lbl].push(sibling.value);
-          } else if (siblingGapToMedian >= 8 && diffToMin >= 6) {
+          } else if (siblingGapToMedian >= 22 && diffToMin >= 25 && sibling.meanVal < 165) {
             flags.push(`Incomplete erasure or faint mark at ${lbl} (Selected '${minB.value}' over faint '${sibling.value}')`);
           }
         }
       } else {
-        if (gapToMedian >= 7 && gapToMedian < 11) {
+        if (gapToMedian >= 15 && gapToMedian < 22) {
           flags.push(`Faint mark at ${lbl} (${minB.value}): gap ${Math.round(gapToMedian)} below confidence margin.`);
         }
       }

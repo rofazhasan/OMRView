@@ -18,6 +18,7 @@ import {
 import type { EvaluationConfig, MarkingScheme, Template, BubblePoint } from '../types/omr';
 import { processOMR } from '../core/omrEngine';
 import { parseTemplate } from '../core/templateParser';
+import { renderPdfToCanvases } from '../utils/pdfLoader';
 
 interface EvaluationManagerProps {
   config: EvaluationConfig;
@@ -454,6 +455,23 @@ export function EvaluationManager({
   const handleScanMasterFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf') {
+      try {
+        setIsScanningOMR(true);
+        const pages = await renderPdfToCanvases(file, { dpi: 150, pages: [1] });
+        if (pages.length > 0) {
+          executeProcessMasterSheet(pages[0].canvas, file.name);
+        } else {
+          setIsScanningOMR(false);
+          alert('Could not render pages from PDF document.');
+        }
+      } catch (err: any) {
+        setIsScanningOMR(false);
+        alert(`Failed to parse PDF document: ${err.message}`);
+      }
+      return;
+    }
 
     const img = new Image();
     const reader = new FileReader();

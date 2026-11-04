@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import type { Template, FieldBlock, BubblePoint } from '../types/omr';
 import { parseTemplate, serializeTemplate } from '../core/templateParser';
+import { renderPdfToCanvases } from '../utils/pdfLoader';
 
 interface TemplateStudioProps {
   initialTemplate?: Template | null;
@@ -297,9 +298,34 @@ export function TemplateStudio({ initialTemplate, onApplyTemplate }: TemplateStu
     updateFieldBlock(activeBlockKey, { origin: [newX, newY] });
   };
 
-  const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf') {
+      try {
+        const pages = await renderPdfToCanvases(file, { dpi: 150, pages: [1] });
+        if (pages.length > 0) {
+          const canvas = pages[0].canvas;
+          const img = new Image();
+          img.onload = () => {
+            setBackgroundImage(img);
+            const updated = {
+              ...template,
+              pageDimensions: [img.width, img.height] as [number, number],
+            };
+            setTemplate(updated);
+            pushHistory(updated);
+            setStatusMessage(`Loaded reference background from PDF Page 1 (${img.width}x${img.height}px)`);
+          };
+          img.src = canvas.toDataURL();
+        }
+      } catch (err: any) {
+        alert(`Failed to parse PDF document: ${err.message}`);
+      }
+      return;
+    }
+
     const img = new Image();
     img.onload = () => {
       setBackgroundImage(img);
@@ -483,8 +509,8 @@ export function TemplateStudio({ initialTemplate, onApplyTemplate }: TemplateStu
             </button>
             <label className="btn btn-outline">
               <Upload size={16} />
-              Load Blank Sheet
-              <input type="file" accept="image/*" hidden onChange={handleImageUpload} />
+              Load Blank Sheet (Image/PDF)
+              <input type="file" accept="image/*,application/pdf,.pdf" hidden onChange={handleImageUpload} />
             </label>
             <label className="btn btn-outline">
               <FileCode size={16} />
