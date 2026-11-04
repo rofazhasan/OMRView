@@ -1,11 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ChangeEvent } from 'react';
 import { 
-  Key, 
-  Award, 
   Upload, 
   Sparkles, 
-  FileCheck, 
   ClipboardPaste, 
   CheckCircle2, 
   Zap,
@@ -13,12 +10,23 @@ import {
   Trash2,
   Copy,
   AlertTriangle,
-  X
+  X,
+  Star,
+  Check,
+  Bookmark
 } from 'lucide-react';
 import type { EvaluationConfig, MarkingScheme, Template, BubblePoint } from '../types/omr';
 import { processOMR } from '../core/omrEngine';
 import { parseTemplate } from '../core/templateParser';
 import { renderPdfToCanvases } from '../utils/pdfLoader';
+
+const SCHEME_PRESETS = [
+  { id: 'medical', name: 'Medical/Dental', label: '🩺 Medical (+1 / -0.25)', correct: 1.0, incorrect: -0.25, unmarked: 0, bonus: 1.0 },
+  { id: 'engineering', name: 'Engineering/BUET', label: '⚙️ Engineering (+2 / -0.5)', correct: 2.0, incorrect: -0.50, unmarked: 0, bonus: 2.0 },
+  { id: 'board', name: 'Board (HSC/SSC)', label: '🏛 Board Exam (+1 / 0)', correct: 1.0, incorrect: 0.0, unmarked: 0, bonus: 1.0 },
+  { id: 'third', name: '1/3rd Penalty', label: '📊 1/3rd (+1 / -0.33)', correct: 1.0, incorrect: -0.33, unmarked: 0, bonus: 1.0 },
+  { id: 'half', name: '1/2 Penalty', label: '⚠️ 1/2 (+1 / -0.50)', correct: 1.0, incorrect: -0.50, unmarked: 0, bonus: 1.0 },
+];
 
 interface EvaluationManagerProps {
   config: EvaluationConfig;
@@ -36,6 +44,7 @@ export function EvaluationManager({
   const [localConfig, setLocalConfig] = useState<EvaluationConfig>(config);
   const [activeSet, setActiveSet] = useState<string>('Set A');
   const [selectedSectionFilter, setSelectedSectionFilter] = useState<string>('ALL');
+  const [selectedRangeFilter, setSelectedRangeFilter] = useState<string>('ALL');
   const [statusMessage, setStatusMessage] = useState<string>('');
   
   // Option labels format: 'ENGLISH' (A, B, C, D) vs 'BANGLA' (ক, খ, গ, ঘ)
@@ -372,12 +381,30 @@ export function EvaluationManager({
     return 'General';
   };
 
-  const filteredQuestions = questionList.filter(q => {
-    if (selectedSectionFilter === 'ALL') return true;
-    return getQuestionSection(q) === selectedSectionFilter;
+  const filteredQuestions = questionList.filter((q, idx) => {
+    if (selectedSectionFilter !== 'ALL' && getQuestionSection(q) !== selectedSectionFilter) {
+      return false;
+    }
+    if (selectedRangeFilter === '1-25') return idx >= 0 && idx < 25;
+    if (selectedRangeFilter === '26-50') return idx >= 25 && idx < 50;
+    if (selectedRangeFilter === '51-75') return idx >= 50 && idx < 75;
+    if (selectedRangeFilter === '76-100') return idx >= 75 && idx < 100;
+    return true;
   });
 
-  const defaultScheme = localConfig.markingSchemes?.['default'] || { correct: 4, incorrect: -1, unmarked: 0, bonus: 4 };
+  const defaultScheme = localConfig.markingSchemes?.['default'] || { correct: 1.0, incorrect: -0.25, unmarked: 0, bonus: 1.0 };
+  const completedCount = Object.keys(activeAnswers).length;
+  const completionPct = questionList.length > 0 ? Math.round((completedCount / questionList.length) * 100) : 0;
+
+  const handleApplyPresetScheme = (preset: typeof SCHEME_PRESETS[0]) => {
+    handleSchemeChange('default', {
+      correct: preset.correct,
+      incorrect: preset.incorrect,
+      unmarked: preset.unmarked,
+      bonus: preset.bonus,
+    });
+    setStatusMessage(`Applied ${preset.name} marking scheme (+${preset.correct} / ${preset.incorrect} penalty)`);
+  };
 
   // =========================================================================
   // SCAN MASTER OMR SHEET AND EXTRACT ANSWERS ENGINE
@@ -548,8 +575,13 @@ export function EvaluationManager({
       <div className="eval-header glass-panel">
         <div className="eval-title-row">
           <div>
-            <h2>Answer Key & Scoring Scheme Engine</h2>
-            <p className="subtitle">Configure master solutions, scan physical teacher OMR keys, set rapid entry, and define marking formulas</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <h2>Answer Key & Scoring Scheme Engine</h2>
+              <span className="keys-badge" style={{ background: completionPct === 100 ? 'rgba(16, 185, 129, 0.18)' : 'rgba(245, 158, 11, 0.18)', color: completionPct === 100 ? '#34d399' : '#fbbf24', border: '1px solid currentColor' }}>
+                {activeSet}: {completedCount} / {questionList.length} Completed ({completionPct}%)
+              </span>
+            </div>
+            <p className="subtitle">Configure official answer keys, auto-extract teacher master OMR sheets, and calibrate negative marking schemes</p>
           </div>
           <div className="eval-actions">
             {/* Camera Scan Master OMR Button */}
@@ -572,15 +604,16 @@ export function EvaluationManager({
             <button 
               className={`btn btn-outline ${rapidEntryIndex !== null ? 'btn-primary' : ''}`} 
               onClick={() => setRapidEntryIndex(rapidEntryIndex === null ? 0 : null)}
+              title="Rapid keyboard entry mode (type answers directly using A, B, C, D)"
             >
               <Zap size={16} /> {rapidEntryIndex !== null ? 'Exit Rapid Entry' : 'Rapid Mode'}
             </button>
 
-            <button className="btn btn-outline" onClick={handleAutoFillAnswers}>
+            <button className="btn btn-outline" onClick={handleAutoFillAnswers} title="Generate repeating A-D or demo pattern">
               <Sparkles size={16} /> Pattern Fill
             </button>
 
-            <button className="btn btn-outline" onClick={handleClearActiveSetAnswers} title="Clear all answers for active set">
+            <button className="btn btn-outline" onClick={handleClearActiveSetAnswers} title="Clear all answers for active set" style={{ color: '#f87171', borderColor: 'rgba(248, 113, 113, 0.3)' }}>
               <Trash2 size={16} /> Clear {activeSet}
             </button>
           </div>
@@ -590,7 +623,7 @@ export function EvaluationManager({
           <div className="rapid-mode-banner animate-pulse">
             <Zap size={18} />
             <span>
-              <strong>Rapid Keyboard Entry Active:</strong> Press keys <strong>[A] [B] [C] [D] [E]</strong> (or <strong>[Backspace]</strong> to clear) for <strong>{questionList[rapidEntryIndex]}</strong>. Press <strong>[Esc]</strong> to exit.
+              <strong>Rapid Keyboard Entry Active:</strong> Press keys <strong>[A] [B] [C] [D] [E]</strong> (or <strong>[Backspace]</strong> to clear) for <strong>{questionList[rapidEntryIndex]}</strong>. Press <strong>[↑ / ↓]</strong> to navigate, <strong>[Esc]</strong> to exit.
             </span>
           </div>
         )}
@@ -607,10 +640,15 @@ export function EvaluationManager({
         <div className="eval-settings-panel glass-panel">
           {/* Multi-Set Tabs */}
           <div className="set-tabs-header-container">
-            <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)' }}>SELECT EXAM SET</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.05em', color: 'var(--text-muted)' }}>SELECT EXAM QUESTION SET</label>
+              <span style={{ fontSize: '11px', color: 'var(--primary)' }}>4 Sets Supported</span>
+            </div>
+
             <div className="set-tabs-row">
               {['Set A', 'Set B', 'Set C', 'Set D'].map(setName => {
                 const count = Object.keys(localConfig.multiSetAnswerKeys?.[setName] || (setName === 'Set A' ? localConfig.answerKey : {})).length;
+                const isFull = count === questionList.length && count > 0;
                 return (
                   <button 
                     key={setName}
@@ -618,7 +656,7 @@ export function EvaluationManager({
                     onClick={() => setActiveSet(setName)}
                   >
                     <span>{setName}</span>
-                    <span className="set-count-chip">{count}</span>
+                    <span className={`set-count-chip ${isFull ? 'full' : ''}`}>{count}</span>
                   </button>
                 );
               })}
@@ -632,7 +670,7 @@ export function EvaluationManager({
           </div>
 
           <div className="field-group">
-            <label>Exam Title</label>
+            <label style={{ fontWeight: 700, fontSize: '0.85rem' }}>Exam Title</label>
             <input 
               type="text" 
               value={localConfig.examName}
@@ -642,56 +680,77 @@ export function EvaluationManager({
                 onUpdateConfig(updated);
               }}
               className="input-field"
+              placeholder="e.g. Medical Admission Model Test 2026"
             />
           </div>
 
-          <div className="field-row">
-            <div className="field-group">
-              <label>Bubble Choices Format</label>
-              <select 
-                value={optionLanguage} 
-                onChange={(e) => setOptionLanguage(e.target.value as any)}
-                className="input-field"
-              >
-                <option value="ENGLISH">A, B, C, D (English)</option>
-                <option value="BANGLA">ক, খ, গ, ঘ (বাংলা)</option>
-              </select>
+          {/* Quick Marking Scheme Presets */}
+          <div className="scheme-presets-section">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.05em', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Bookmark size={13} color="var(--primary)" /> STANDARD MARKING PRESETS
+              </label>
             </div>
-
-            <div className="field-group">
-              <label>Question Count</label>
-              <select 
-                value={manualQuestionCount} 
-                onChange={(e) => setManualQuestionCount(parseInt(e.target.value, 10))}
-                className="input-field"
-              >
-                <option value={25}>25 Questions</option>
-                <option value={30}>30 Questions</option>
-                <option value={50}>50 Questions</option>
-                <option value={60}>60 Questions</option>
-                <option value={75}>75 Questions</option>
-                <option value={100}>100 Questions</option>
-              </select>
-            </div>
-
-            <div className="field-group">
-              <label>Marking Mode</label>
-              <button 
-                type="button"
-                className={`btn-toggle-mini ${multiCorrectMode ? 'active' : ''}`}
-                onClick={() => setMultiCorrectMode(!multiCorrectMode)}
-              >
-                {multiCorrectMode ? 'Multi-Correct' : 'Single Choice'}
-              </button>
+            <div className="preset-chips-grid">
+              {SCHEME_PRESETS.map(preset => {
+                const isMatch = defaultScheme.correct === preset.correct && defaultScheme.incorrect === preset.incorrect;
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    className={`preset-chip-btn ${isMatch ? 'active' : ''}`}
+                    onClick={() => handleApplyPresetScheme(preset)}
+                    title={preset.name}
+                  >
+                    <span>{preset.label}</span>
+                    {isMatch && <Check size={12} />}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          <h4 style={{ marginTop: '0.75rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Award size={18} color="var(--primary)" />
-            Marking Scheme Formula
-          </h4>
+          {/* Live Mathematical Formula Card */}
+          <div className="formula-live-card">
+            <div className="formula-header">
+              <span className="formula-title">Live Scoring Formula</span>
+              <span className="formula-badge">DGHS / Board Compliant</span>
+            </div>
+            <div className="formula-equation">
+              <span className="eq-part green">+({defaultScheme.correct.toFixed(2)} × Correct)</span>
+              <span className="eq-operator">−</span>
+              <span className="eq-part red">({Math.abs(defaultScheme.incorrect).toFixed(2)} × Wrong)</span>
+              {defaultScheme.unmarked !== 0 && (
+                <>
+                  <span className="eq-operator">+</span>
+                  <span className="eq-part muted">({defaultScheme.unmarked.toFixed(2)} × Blank)</span>
+                </>
+              )}
+              <span className="eq-operator">=</span>
+              <span className="eq-result">Score</span>
+            </div>
+            <div className="formula-stats-row">
+              <div className="formula-stat">
+                <span className="f-stat-label">Total Qs</span>
+                <span className="f-stat-value">{questionList.length}</span>
+              </div>
+              <div className="formula-stat">
+                <span className="f-stat-label">Max Score</span>
+                <span className="f-stat-value">{(questionList.length * defaultScheme.correct).toFixed(1)} pts</span>
+              </div>
+              <div className="formula-stat">
+                <span className="f-stat-label">Filled Key</span>
+                <span className="f-stat-value" style={{ color: completionPct === 100 ? '#10b981' : '#f59e0b' }}>
+                  {completedCount} / {questionList.length} ({completionPct}%)
+                </span>
+              </div>
+            </div>
+          </div>
 
           <div className="marking-scheme-box">
+            <label style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '8px', display: 'block' }}>
+              CUSTOM VALUES & PENALTIES
+            </label>
             <div className="field-row">
               <div className="field-group">
                 <label>Correct (+)</label>
@@ -736,14 +795,45 @@ export function EvaluationManager({
             </div>
           </div>
 
-          <div className="exam-summary-card">
-            <div className="stat-pill">
-              <Key size={16} />
-              <span>{questionList.length} Questions</span>
+          <div className="field-row">
+            <div className="field-group">
+              <label>Choices Format</label>
+              <select 
+                value={optionLanguage} 
+                onChange={(e) => setOptionLanguage(e.target.value as any)}
+                className="input-field"
+              >
+                <option value="ENGLISH">A, B, C, D (English)</option>
+                <option value="BANGLA">ক, খ, গ, ঘ (বাংলা)</option>
+              </select>
             </div>
-            <div className="stat-pill">
-              <FileCheck size={16} />
-              <span>Max Score: {(questionList.length * defaultScheme.correct).toFixed(1)} pts</span>
+
+            <div className="field-group">
+              <label>Questions</label>
+              <select 
+                value={manualQuestionCount} 
+                onChange={(e) => setManualQuestionCount(parseInt(e.target.value, 10))}
+                className="input-field"
+              >
+                <option value={25}>25 Qs</option>
+                <option value={30}>30 Qs</option>
+                <option value={50}>50 Qs</option>
+                <option value={60}>60 Qs</option>
+                <option value={75}>75 Qs</option>
+                <option value={100}>100 Qs</option>
+              </select>
+            </div>
+
+            <div className="field-group">
+              <label>Answer Mode</label>
+              <button 
+                type="button"
+                className={`btn-toggle-mini ${multiCorrectMode ? 'active' : ''}`}
+                onClick={() => setMultiCorrectMode(!multiCorrectMode)}
+                title="Toggle single option vs multi-option correct"
+              >
+                {multiCorrectMode ? 'Multi-Correct' : 'Single Option'}
+              </button>
             </div>
           </div>
         </div>
@@ -752,14 +842,67 @@ export function EvaluationManager({
         <div className="eval-keys-panel glass-panel">
           <div className="keys-panel-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <h3>Master Answer Key ({activeSet})</h3>
+              <div>
+                <h3 style={{ margin: 0 }}>Master Answer Key ({activeSet})</h3>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  Click bubble to set / clear • Tap star for Bonus marks
+                </span>
+              </div>
               <div className="keys-badge">
-                {Object.keys(activeAnswers).length} / {questionList.length} Completed
+                {completedCount} / {questionList.length} Answered
               </div>
             </div>
 
-            {/* Section Filter Pills */}
-            <div className="section-filter-pills">
+            {/* Quick Range Jump Bar */}
+            <div className="range-filter-pills">
+              <button
+                type="button"
+                className={`range-pill ${selectedRangeFilter === 'ALL' ? 'active' : ''}`}
+                onClick={() => setSelectedRangeFilter('ALL')}
+              >
+                All ({questionList.length})
+              </button>
+              {questionList.length > 25 && (
+                <>
+                  <button
+                    type="button"
+                    className={`range-pill ${selectedRangeFilter === '1-25' ? 'active' : ''}`}
+                    onClick={() => setSelectedRangeFilter('1-25')}
+                  >
+                    Q 01–25
+                  </button>
+                  <button
+                    type="button"
+                    className={`range-pill ${selectedRangeFilter === '26-50' ? 'active' : ''}`}
+                    onClick={() => setSelectedRangeFilter('26-50')}
+                  >
+                    Q 26–50
+                  </button>
+                </>
+              )}
+              {questionList.length > 50 && (
+                <>
+                  <button
+                    type="button"
+                    className={`range-pill ${selectedRangeFilter === '51-75' ? 'active' : ''}`}
+                    onClick={() => setSelectedRangeFilter('51-75')}
+                  >
+                    Q 51–75
+                  </button>
+                  <button
+                    type="button"
+                    className={`range-pill ${selectedRangeFilter === '76-100' ? 'active' : ''}`}
+                    onClick={() => setSelectedRangeFilter('76-100')}
+                  >
+                    Q 76–100
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {detectedSections.length > 1 && (
+            <div className="section-filter-pills" style={{ marginTop: '-4px' }}>
               <button 
                 className={`sec-pill ${selectedSectionFilter === 'ALL' ? 'active' : ''}`}
                 onClick={() => setSelectedSectionFilter('ALL')}
@@ -776,7 +919,7 @@ export function EvaluationManager({
                 </button>
               ))}
             </div>
-          </div>
+          )}
 
           <div className="answer-keys-matrix">
             {filteredQuestions.map((qKey, index) => {
@@ -785,13 +928,20 @@ export function EvaluationManager({
               const isFocused = rapidEntryIndex === index;
               const currentTokens = currentAns.split(',').map(s => s.trim()).filter(Boolean);
 
+              // Format question label e.g. "q1" -> "Q 01", "q42" -> "Q 42"
+              const qNumMatch = qKey.match(/\d+/);
+              const formattedLabel = qNumMatch ? `Q ${qNumMatch[0].padStart(2, '0')}` : qKey.toUpperCase();
+
               return (
                 <div 
                   key={qKey} 
                   className={`answer-key-row ${isBonus ? 'is-bonus' : ''} ${isFocused ? 'is-rapid-focus' : ''}`}
                   onClick={() => setRapidEntryIndex(index)}
                 >
-                  <span className="q-label">{qKey}</span>
+                  <div className="q-label-wrapper">
+                    <span className="q-label">{formattedLabel}</span>
+                    {isBonus && <span className="bonus-mini-indicator">BONUS</span>}
+                  </div>
                   
                   <div className="option-btn-group">
                     {availableOptions.map(opt => {
@@ -805,7 +955,7 @@ export function EvaluationManager({
                             e.stopPropagation();
                             handleOptionClick(qKey, opt);
                           }}
-                          title={`Click to select/deselect ${opt}`}
+                          title={`Click to set/unset ${opt}`}
                         >
                           {opt}
                         </button>
@@ -813,42 +963,36 @@ export function EvaluationManager({
                     })}
                   </div>
 
-                  {/* Quick Clear Answer Button */}
-                  {currentAns && (
+                  <div className="q-row-actions">
+                    {/* Bonus Star Toggle Button */}
                     <button 
                       type="button"
-                      className="btn-clear-single-ans"
+                      className={`btn-bonus-star ${isBonus ? 'active' : ''}`}
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleAnswerChange(qKey, '');
+                        toggleBonusQuestion(qKey);
                       }}
-                      title="Clear answer for this question"
+                      title={isBonus ? 'Bonus mark awarded to everyone' : 'Make this a bonus question'}
                     >
-                      ✕
+                      <Star size={13} fill={isBonus ? '#000' : 'none'} />
+                      <span>{isBonus ? 'Bonus' : ''}</span>
                     </button>
-                  )}
 
-                  <input 
-                    type="text" 
-                    value={currentAns}
-                    onChange={(e) => handleAnswerChange(qKey, e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
-                    className="custom-ans-input"
-                    placeholder="-"
-                    title="Enter custom answer or multiple-correct e.g. A,B"
-                  />
-
-                  <button 
-                    type="button"
-                    className={`btn-tag ${isBonus ? 'bonus-active' : ''}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleBonusQuestion(qKey);
-                    }}
-                    title="Mark as Bonus Question (Awards full marks to every candidate)"
-                  >
-                    Bonus
-                  </button>
+                    {/* Quick Clear Answer Button */}
+                    {currentAns && (
+                      <button 
+                        type="button"
+                        className="btn-clear-single-ans"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAnswerChange(qKey, '');
+                        }}
+                        title="Clear answer for this question"
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}
