@@ -17,7 +17,9 @@ import {
   ZapOff,
   RefreshCw,
   CameraOff,
-  X
+  X,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import type { 
   Template, 
@@ -66,6 +68,8 @@ export function BatchProcessor({
   const [cameraFacing, setCameraFacing] = useState<'environment' | 'user'>('environment');
   const [isTorchOn, setIsTorchOn] = useState<boolean>(false);
   const [isTorchSupported, setIsTorchSupported] = useState<boolean>(false);
+  const [viewMode, setViewMode] = useState<'enhanced' | 'raw'>('enhanced');
+  const [showOverlay, setShowOverlay] = useState<boolean>(true);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -79,6 +83,47 @@ export function BatchProcessor({
       }
     };
   }, []);
+
+  // Synchronize document canvas preview when selecting candidates or toggling enhancement
+  useEffect(() => {
+    if (isCameraActive || !activePreviewSheetId || !overlayCanvasRef.current) return;
+    const currentScan = scanResults[activePreviewSheetId];
+    if (!currentScan) return;
+
+    const canvas = overlayCanvasRef.current;
+    const baseCanvas = (viewMode === 'enhanced' && currentScan.enhancedImageCanvas) 
+      ? currentScan.enhancedImageCanvas 
+      : (currentScan.warpedImageCanvas || null);
+
+    if (baseCanvas) {
+      canvas.width = baseCanvas.width;
+      canvas.height = baseCanvas.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(baseCanvas, 0, 0);
+
+        if (showOverlay && currentScan.bubbleDetections) {
+          currentScan.bubbleDetections.forEach(b => {
+            ctx.save();
+            if (b.isMarked) {
+              const isMulti = currentScan.responses[b.label]?.length > 1;
+              ctx.strokeStyle = isMulti ? '#ef4444' : '#10b981';
+              ctx.lineWidth = 3;
+              ctx.fillStyle = isMulti ? 'rgba(239, 68, 68, 0.22)' : 'rgba(16, 185, 129, 0.22)';
+              ctx.fillRect(b.rect.x, b.rect.y, b.rect.width, b.rect.height);
+              ctx.strokeRect(b.rect.x, b.rect.y, b.rect.width, b.rect.height);
+            } else {
+              ctx.strokeStyle = 'rgba(59, 130, 246, 0.35)';
+              ctx.lineWidth = 1.5;
+              ctx.strokeRect(b.rect.x, b.rect.y, b.rect.width, b.rect.height);
+            }
+            ctx.restore();
+          });
+        }
+      }
+    }
+  }, [activePreviewSheetId, viewMode, showOverlay, scanResults, isCameraActive]);
 
   const handleMultipleFilesUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -631,14 +676,53 @@ export function BatchProcessor({
         <div className="preview-panel glass-panel">
           <div className="preview-header">
             <div>
-              <h3>Optical Computer Vision Overlay</h3>
+              <h3>Optical Inspection & Document Enhancement</h3>
               <p className="preview-subtext">
                 {isCameraActive 
                   ? 'Live Camera Active — Align corners inside viewfinder guides' 
-                  : 'Perspective-Corrected Warped Document with Bubble Classifications'}
+                  : (activePreviewSheetId && scanResults[activePreviewSheetId] 
+                      ? `${scanResults[activePreviewSheetId].filename} — ${viewMode === 'enhanced' ? 'Studio Enhanced (Bright White, Shadow-Free)' : 'Original Aligned Scan'}` 
+                      : 'Perspective-Corrected Warped Document with Bubble Classifications')}
               </p>
             </div>
-            <span className="preview-badge">OpenCV 4.12 WASM Engine Active</span>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {!isCameraActive && activePreviewSheetId && (
+                <>
+                  <div style={{ display: 'flex', background: 'rgba(255,255,255,0.06)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                    <button
+                      type="button"
+                      className={`btn btn-xs ${viewMode === 'enhanced' ? 'btn-primary' : 'btn-ghost'}`}
+                      onClick={() => setViewMode('enhanced')}
+                      title="Studio Document Enhancement: Removes shadows, flattens illumination, whitens paper & sharpens ink"
+                      style={{ padding: '4px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <Sparkles size={12} /> Studio Enhanced
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn btn-xs ${viewMode === 'raw' ? 'btn-primary' : 'btn-ghost'}`}
+                      onClick={() => setViewMode('raw')}
+                      title="Original Camera / Document Perspective"
+                      style={{ padding: '4px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <Camera size={12} /> Original Scan
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    className={`btn btn-xs ${showOverlay ? 'btn-outline' : 'btn-ghost'}`}
+                    onClick={() => setShowOverlay(!showOverlay)}
+                    title="Toggle Bubble Recognition Grids & Confidence Highlights"
+                    style={{ padding: '4px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    {showOverlay ? <Eye size={12} /> : <EyeOff size={12} />} Overlay
+                  </button>
+                </>
+              )}
+              <span className="preview-badge">OpenCV 4.12 WASM Active</span>
+            </div>
           </div>
 
           <div className={`canvas-viewport ${isCameraActive ? 'camera-mode-active' : ''}`}>

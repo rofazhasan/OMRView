@@ -79,6 +79,7 @@ export interface ScanProcessingResult {
   status: 'SUCCESS' | 'FLAGGED' | 'FAILED';
   flags: string[];
   warpedImageCanvas?: HTMLCanvasElement;
+  enhancedImageCanvas?: HTMLCanvasElement;
   stateMachineAudit?: StateMachineAuditReport;
 }
 

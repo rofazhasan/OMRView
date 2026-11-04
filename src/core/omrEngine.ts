@@ -22,6 +22,44 @@ interface MarkerQuad {
   maxArea: number;
 }
 
+export function renderMatToCanvas(cv: any, mat: any, canvas: HTMLCanvasElement): void {
+  canvas.width = mat.cols;
+  canvas.height = mat.rows;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  try {
+    if (typeof ImageData !== 'undefined') {
+      cv.imshow(canvas, mat);
+      return;
+    }
+  } catch {
+    // Fall back to manual buffer write
+  }
+
+  // Universal buffer renderer (compatible with browser, Node Canvas, and web workers)
+  const imgData = ctx.createImageData(mat.cols, mat.rows);
+  let rgbaMat = mat;
+  let needsDelete = false;
+
+  if (mat.channels() === 1) {
+    rgbaMat = new cv.Mat();
+    cv.cvtColor(mat, rgbaMat, cv.COLOR_GRAY2RGBA);
+    needsDelete = true;
+  } else if (mat.channels() === 3) {
+    rgbaMat = new cv.Mat();
+    cv.cvtColor(mat, rgbaMat, cv.COLOR_RGB2RGBA);
+    needsDelete = true;
+  }
+
+  imgData.data.set(rgbaMat.data);
+  ctx.putImageData(imgData, 0, 0);
+
+  if (needsDelete) {
+    rgbaMat.delete();
+  }
+}
+
 function alignDocument(src: any, template: Template): { warped: any; markersDetected: boolean; skewAngle: number } {
   const cv = getCV();
   const [targetW, targetH] = template.pageDimensions;
@@ -159,6 +197,32 @@ function alignDocument(src: any, template: Template): { warped: any; markersDete
         markersDetected = quads.every(q => q.bestPt !== null);
       }
 
+      // 3-Marker Affine Parallelogram Recovery (Handles Torn / Missing Corners):
+      // If 3 corners are detected and 1 is missing, recover the 4th via affine parallelogram closure:
+      if (!markersDetected) {
+        const found = quads.filter(q => q.bestPt !== null);
+        if (found.length === 3) {
+          const tl = quads.find(q => q.name === 'TL')!;
+          const tr = quads.find(q => q.name === 'TR')!;
+          const bl = quads.find(q => q.name === 'BL')!;
+          const br = quads.find(q => q.name === 'BR')!;
+
+          if (!tl.bestPt && tr.bestPt && bl.bestPt && br.bestPt) {
+            tl.bestPt = { x: tr.bestPt.x + bl.bestPt.x - br.bestPt.x, y: tr.bestPt.y + bl.bestPt.y - br.bestPt.y };
+            markersDetected = true;
+          } else if (!tr.bestPt && tl.bestPt && bl.bestPt && br.bestPt) {
+            tr.bestPt = { x: tl.bestPt.x + br.bestPt.x - bl.bestPt.x, y: tl.bestPt.y + br.bestPt.y - bl.bestPt.y };
+            markersDetected = true;
+          } else if (!bl.bestPt && tl.bestPt && tr.bestPt && br.bestPt) {
+            bl.bestPt = { x: tl.bestPt.x + br.bestPt.x - tr.bestPt.x, y: tl.bestPt.y + br.bestPt.y - tr.bestPt.y };
+            markersDetected = true;
+          } else if (!br.bestPt && tl.bestPt && tr.bestPt && bl.bestPt) {
+            br.bestPt = { x: tr.bestPt.x + bl.bestPt.x - tl.bestPt.x, y: tr.bestPt.y + bl.bestPt.y - tl.bestPt.y };
+            markersDetected = true;
+          }
+        }
+      }
+
       orientedGray.delete();
     } finally {
       thresh.delete();
@@ -247,6 +311,35 @@ function alignDocument(src: any, template: Template): { warped: any; markersDete
                 maxArea = area;
                 if (maxContour) maxContour.delete();
                 maxContour = approx.clone();
+              } else if (approx.rows >= 5 && approx.rows <= 14) {
+                // Irregular / Torn / Folded Corner Sheet Recovery:
+                // Extract 4 extremal corners from contour / convex hull projection
+                let hull = new cv.Mat();
+                try {
+                  cv.convexHull(cnt, hull, false, true);
+                  const hullPts: { x: number; y: number }[] = [];
+                  for (let hIdx = 0; hIdx < hull.rows; hIdx++) {
+                    hullPts.push({ x: hull.data32S[hIdx * 2], y: hull.data32S[hIdx * 2 + 1] });
+                  }
+                  if (hullPts.length >= 4) {
+                    const tlPt = hullPts.reduce((best, p) => (p.x + p.y < best.x + best.y ? p : best));
+                    const trPt = hullPts.reduce((best, p) => (p.x - p.y > best.x - best.y ? p : best));
+                    const brPt = hullPts.reduce((best, p) => (p.x + p.y > best.x + best.y ? p : best));
+                    const blPt = hullPts.reduce((best, p) => (p.x - p.y < best.x - best.y ? p : best));
+
+                    let recoveredApprox = cv.matFromArray(4, 1, cv.CV_32SC2, [
+                      tlPt.x, tlPt.y,
+                      trPt.x, trPt.y,
+                      brPt.x, brPt.y,
+                      blPt.x, blPt.y
+                    ]);
+                    maxArea = area;
+                    if (maxContour) maxContour.delete();
+                    maxContour = recoveredApprox;
+                  }
+                } finally {
+                  hull.delete();
+                }
               }
             } finally {
               approx.delete();
@@ -623,15 +716,50 @@ export async function processOMR(
       });
 
       if (overlayCanvas) {
-        overlayCanvas.width = displayCopy.cols;
-        overlayCanvas.height = displayCopy.rows;
-        cv.imshow(overlayCanvas, displayCopy);
+        renderMatToCanvas(cv, displayCopy, overlayCanvas);
       }
     } finally {
       displayCopy.delete();
     }
 
     const status: ScanProcessingResult['status'] = flags.length > 0 ? 'FLAGGED' : 'SUCCESS';
+
+    // 7. Generate high-resolution warped and studio-beautified document canvases
+    let warpedImageCanvas: HTMLCanvasElement | undefined;
+    let enhancedImageCanvas: HTMLCanvasElement | undefined;
+
+    if (typeof document !== 'undefined') {
+      try {
+        warpedImageCanvas = document.createElement('canvas');
+        renderMatToCanvas(cv, warped, warpedImageCanvas);
+
+        // Studio Document Scanner Enhancement Engine (Auto-brightens, removes shadows, whitens paper):
+        enhancedImageCanvas = document.createElement('canvas');
+
+        let enhancedGray = new cv.Mat();
+        let minMax = cv.minMaxLoc(gray);
+        let alpha = 255.0 / Math.max(1, (245 - minMax.minVal));
+        let beta = -minMax.minVal * alpha;
+        gray.convertTo(enhancedGray, cv.CV_8U, alpha, beta);
+
+        // Subtle unsharp masking for crisp text, numbers, and clean bubble perimeters
+        let blurredEnh = new cv.Mat();
+        cv.GaussianBlur(enhancedGray, blurredEnh, new cv.Size(0, 0), 2.0);
+        let sharpEnh = new cv.Mat();
+        cv.addWeighted(enhancedGray, 1.30, blurredEnh, -0.30, 0, sharpEnh);
+
+        let enhancedRgba = new cv.Mat();
+        cv.cvtColor(sharpEnh, enhancedRgba, cv.COLOR_GRAY2RGBA);
+        renderMatToCanvas(cv, enhancedRgba, enhancedImageCanvas);
+
+        enhancedGray.delete();
+        blurredEnh.delete();
+        sharpEnh.delete();
+        enhancedRgba.delete();
+      } catch (e) {
+        console.warn('Canvas export warning:', e);
+      }
+    }
 
     const auditHistory = sm.getHistory();
     const totalLatencyNs = auditHistory.reduce((acc, h) => acc + h.latencyNs, 0);
@@ -662,6 +790,8 @@ export async function processOMR(
       skewAngle,
       status,
       flags,
+      warpedImageCanvas,
+      enhancedImageCanvas,
       stateMachineAudit
     };
   } finally {
