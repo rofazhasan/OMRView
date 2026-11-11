@@ -41,6 +41,24 @@ export function StudentReportCardModal({ scoreCard, config, onClose }: StudentRe
                 <span className="meta-label">CANDIDATE ROLL NO</span>
                 <span className="meta-val">{scoreCard.rollNumber}</span>
               </div>
+              {scoreCard.registrationNo && (
+                <div className="meta-box">
+                  <span className="meta-label">REGISTRATION NO</span>
+                  <span className="meta-val">{scoreCard.registrationNo}</span>
+                </div>
+              )}
+              {scoreCard.subjectCode && (
+                <div className="meta-box">
+                  <span className="meta-label">SUBJECT CODE</span>
+                  <span className="meta-val">{scoreCard.subjectCode}</span>
+                </div>
+              )}
+              {scoreCard.scriptSerial && (
+                <div className="meta-box">
+                  <span className="meta-label">SCRIPT SERIAL</span>
+                  <span className="meta-val">{scoreCard.scriptSerial}</span>
+                </div>
+              )}
               <div className="meta-box">
                 <span className="meta-label">ALL-COHORT RANK</span>
                 <span className="meta-val">#{scoreCard.rank || 'N/A'}</span>

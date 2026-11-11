@@ -36,6 +36,15 @@ export class EvaluationEngine {
     const rollNumber = concatenatedResponses[rollField] || responses[rollField]?.join('') || 'UNKNOWN';
     const examSet = concatenatedResponses[setField] || responses[setField]?.join('') || 'DEFAULT';
 
+    // Extract Bangladesh Board & CQ specific metadata if available
+    const registrationNo = concatenatedResponses['Registration'] || responses['Registration']?.join('') || undefined;
+    const subjectCode = concatenatedResponses['SubjectCode'] || responses['SubjectCode']?.join('') || undefined;
+    const scriptSerial = concatenatedResponses['ScriptSerial'] || responses['ScriptSerial']?.join('') || undefined;
+    
+    const rawCQMarks = concatenatedResponses['ObtainedMarks'] || responses['ObtainedMarks']?.join('') || concatenatedResponses['TotalMarksCQ'];
+    const isCQScript = Boolean(rawCQMarks || scriptSerial || (this.config.sections && Object.keys(this.config.sections).some(k => k.toLowerCase().includes('cq'))));
+    const obtainedMarks = rawCQMarks && !isNaN(parseFloat(rawCQMarks)) ? parseFloat(rawCQMarks) : undefined;
+
     // Resolve set-specific answer key if multi-set keys are configured
     let answerKey = this.config.answerKey;
     if (this.config.multiSetAnswerKeys) {
@@ -166,16 +175,27 @@ export class EvaluationEngine {
       };
     }
 
-    const percentage = maxScore > 0 ? parseFloat(((totalScore / maxScore) * 100).toFixed(2)) : 0;
-    const needsReview = studentFlags.length > 0 || totalScore < 0 || unmarkedCount > Object.keys(answerKey).length * 0.7;
+    const finalTotalScore = (isCQScript && obtainedMarks !== undefined && Object.keys(answerKey).length === 0)
+      ? obtainedMarks
+      : totalScore;
+    const finalMaxScore = (isCQScript && obtainedMarks !== undefined && maxScore === 0)
+      ? 100
+      : maxScore;
+    const percentage = finalMaxScore > 0 ? parseFloat(((finalTotalScore / finalMaxScore) * 100).toFixed(2)) : 0;
+    const needsReview = studentFlags.length > 0 || finalTotalScore < 0 || (Object.keys(answerKey).length > 0 && unmarkedCount > Object.keys(answerKey).length * 0.7);
 
     return {
       sheetId,
       filename,
       rollNumber,
       examSet,
-      totalScore,
-      maxScore,
+      registrationNo,
+      subjectCode,
+      scriptSerial,
+      isCQScript,
+      obtainedMarks,
+      totalScore: finalTotalScore,
+      maxScore: finalMaxScore,
       percentage,
       correctCount,
       incorrectCount,

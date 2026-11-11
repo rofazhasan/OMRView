@@ -1,4 +1,6 @@
-import { useState, useRef } from 'react';
+"use client";
+
+import React, { useState, useRef } from 'react';
 import { 
   Printer, 
   Download, 
@@ -11,12 +13,20 @@ import {
   ShieldCheck,
   Sparkles
 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import type { Template } from '../types/omr';
 import { toBanglaNumber } from '../utils/banglaUtils';
+import { BangladeshBoardCQ3PartSheet } from './BangladeshBoardCQ3PartSheet';
+import './omr.css';
 
 interface BangladeshOMRGeneratorProps {
-  onApplyGeneratedTemplate: (template: Template) => void;
-  onNavigateToScanner: () => void;
+  initialPreset?: PresetType;
+  onApplyGeneratedTemplate?: (template: Template) => void;
+  onNavigateToScanner?: () => void;
+  examId?: string;
+  setId?: string;
+  setName?: string;
+  hideTopHeader?: boolean;
 }
 
 export type PresetType = 
@@ -26,17 +36,29 @@ export type PresetType =
   | 'du_admission' 
   | 'gst_cluster' 
   | 'agri_cluster' 
+  | 'board_cq_3part'
   | 'custom';
 
 export type ThemeColor = 'magenta' | 'blue' | 'black' | 'green';
 export type SheetLayoutMode = 'split' | 'stacked';
 
 export function BangladeshOMRGenerator({ 
+  initialPreset,
   onApplyGeneratedTemplate, 
-  onNavigateToScanner 
+  onNavigateToScanner,
+  examId,
+  setId,
+  setName,
+  hideTopHeader = false
 }: BangladeshOMRGeneratorProps) {
   // Preset selection
-  const [selectedPreset, setSelectedPreset] = useState<PresetType>('hsc_ssc_50');
+  const [selectedPreset, setSelectedPreset] = useState<PresetType>(initialPreset || 'hsc_ssc_50');
+
+  React.useEffect(() => {
+    if (initialPreset && initialPreset !== selectedPreset) {
+      handleSelectPreset(initialPreset);
+    }
+  }, [initialPreset]);
 
   // Customization State
   const [examTitleBangla, setExamTitleBangla] = useState<string>('নৈর্ব্যক্তিক অভীক্ষার উত্তরপত্র');
@@ -67,6 +89,7 @@ export function BangladeshOMRGenerator({
   const [showBarcodeSecurity, setShowBarcodeSecurity] = useState<boolean>(true);
 
   const [statusMessage, setStatusMessage] = useState<string>('');
+  const [previewZoom, setPreviewZoom] = useState<number>(0.85);
   const printContainerRef = useRef<HTMLDivElement>(null);
 
   // Apply predefined templates
@@ -196,6 +219,27 @@ export function BangladeshOMRGenerator({
       setShowBarcodeSecurity(true);
       setSerialNumber('AGRI-2026-881204');
       setStatusMessage('Loaded Agriculture Cluster 5-Column 100-Question Preset');
+    } else if (preset === 'board_cq_3part') {
+      setInstituteNameBangla('মাধ্যমিক ও উচ্চ মাধ্যমিক শিক্ষা বোর্ড, ঢাকা');
+      setExamTitleBangla('এস.এস.সি / এইচ.এস.সি / ডিআইবিএস পরীক্ষা');
+      setNumQuestions(20);
+      setNumColumns(1);
+      setLayoutMode('split');
+      setOptionLanguage('BANGLA');
+      setNumberingLanguage('BANGLA');
+      setThemeColor('magenta');
+      setShowRollNumber(true);
+      setRollDigits(6);
+      setShowRegNumber(true);
+      setRegDigits(10);
+      setShowSubjectCode(true);
+      setSubjectCodeDigits(3);
+      setShowSetCode(false);
+      setShowSignatures(true);
+      setShowInstructions(true);
+      setShowBarcodeSecurity(true);
+      setSerialNumber('T2301139641');
+      setStatusMessage('Loaded Official Bangladesh Board 3-Part CQ Script Cover Sheet (সৃজনশীল ও রচনামূলক)');
     }
   };
 
@@ -345,9 +389,9 @@ export function BangladeshOMRGenerator({
 
   const handleSyncToScanner = () => {
     const tmpl = generateOMRCheckerTemplate();
-    onApplyGeneratedTemplate(tmpl);
+    if (onApplyGeneratedTemplate) onApplyGeneratedTemplate(tmpl);
     setStatusMessage('Sync complete! Template calibrated for this exact printed sheet.');
-    onNavigateToScanner();
+    if (onNavigateToScanner) onNavigateToScanner();
   };
 
   const handleExportTemplateJSON = () => {
@@ -422,53 +466,111 @@ export function BangladeshOMRGenerator({
   return (
     <div className="bangladesh-omr-generator animate-fade-in">
       {/* Top Configuration & Control Bar */}
-      <div className="generator-top-panel glass-panel no-print">
-        <div className="panel-title-row">
-          <div>
-            <h2>Bangladesh HSC/SSC & University Admission OMR Designer</h2>
-            <p className="subtitle">Official Board & University-Grade Printable OMR Sheets — Zero Vacant Space, Fully Calibrated</p>
+      {!hideTopHeader ? (
+        <div className="generator-top-panel glass-panel no-print">
+          <div className="panel-title-row">
+            <div>
+              <h2>Bangladesh HSC/SSC & University Admission OMR Designer</h2>
+              <p className="subtitle">Official Board & University-Grade Printable OMR Sheets — Zero Vacant Space, Fully Calibrated</p>
+            </div>
+
+            <div className="panel-actions">
+              <button className="btn btn-outline" onClick={handleExportTemplateJSON} title="Export JSON matching this sheet">
+                <Download size={16} /> Export template.json
+              </button>
+              <button className="btn btn-outline" style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }} onClick={handleSyncToScanner}>
+                <CheckCircle size={16} /> Sync to Scanner
+              </button>
+              <button className="btn btn-primary" onClick={handlePrint}>
+                <Printer size={18} /> Print Sheet (A4 / PDF)
+              </button>
+            </div>
           </div>
 
-          <div className="panel-actions">
-            <button className="btn btn-outline" onClick={handleExportTemplateJSON} title="Export JSON matching this sheet">
-              <Download size={16} /> Export template.json
-            </button>
-            <button className="btn btn-outline" style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }} onClick={handleSyncToScanner}>
-              <CheckCircle size={16} /> Sync to Scanner
-            </button>
-            <button className="btn btn-primary" onClick={handlePrint}>
-              <Printer size={18} /> Print Sheet (A4 / PDF)
-            </button>
+          {statusMessage && (
+            <div className="studio-status-bar">
+              <span>{statusMessage}</span>
+            </div>
+          )}
+
+          {/* Preset Selector Chips */}
+          <div className="presets-chips-bar">
+            <span className="chips-label"><Bookmark size={15} /> Official Presets:</span>
+            {[
+              { id: 'hsc_ssc_50', label: 'HSC / SSC 50-Q (Board Authentic)' },
+              { id: 'board_cq_3part', label: '📝 Board CQ 3-Part Cover (সৃজনশীল)' },
+              { id: 'hsc_ssc_25', label: 'HSC 25-Q (Short Syllabus)' },
+              { id: 'medical_100', label: 'Medical & Dental 100-Q (DGHS)' },
+              { id: 'du_admission', label: 'DU Ka/Kha 60-Q (Dhaka Univ)' },
+              { id: 'gst_cluster', label: 'GST Cluster 100-Q' },
+              { id: 'agri_cluster', label: 'Agriculture Cluster 100-Q' },
+            ].map(p => (
+              <button
+                key={p.id}
+                className={`preset-chip ${selectedPreset === p.id ? 'active' : ''}`}
+                onClick={() => handleSelectPreset(p.id as PresetType)}
+              >
+                {p.label}
+              </button>
+            ))}
           </div>
         </div>
-
-        {statusMessage && (
-          <div className="studio-status-bar">
-            <span>{statusMessage}</span>
+      ) : (
+        /* Sleek compact toolbar when embedded in main page */
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-slate-900/90 border border-slate-800 rounded-xl mb-4 no-print">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs font-bold text-slate-400 mr-1 flex items-center gap-1">
+              <Bookmark size={14} className="text-indigo-400" /> প্রিসেট:
+            </span>
+            {[
+              { id: 'board_cq_3part', label: '📝 CQ ৩-খণ্ড কভার' },
+              { id: 'hsc_ssc_50', label: '🎓 HSC/SSC ৫০-প্রশ্ন' },
+              { id: 'medical_100', label: '🩺 মেডিকেল ১০০-প্রশ্ন' },
+              { id: 'du_admission', label: '🏛️ ঢাবি ৬০/১০০-প্রশ্ন' },
+              { id: 'gst_cluster', label: '🌐 GST গুচ্ছ ১০০-প্রশ্ন' },
+              { id: 'hsc_ssc_25', label: '⚡ মডেল টেস্ট ২৫-প্রশ্ন' },
+            ].map(p => (
+              <button
+                key={p.id}
+                type="button"
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  selectedPreset === p.id
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                    : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-700/60'
+                }`}
+                onClick={() => handleSelectPreset(p.id as PresetType)}
+              >
+                {p.label}
+              </button>
+            ))}
           </div>
-        )}
 
-        {/* Preset Selector Chips */}
-        <div className="presets-chips-bar">
-          <span className="chips-label"><Bookmark size={15} /> Official Presets:</span>
-          {[
-            { id: 'hsc_ssc_50', label: 'HSC / SSC 50-Q (Board Authentic)' },
-            { id: 'hsc_ssc_25', label: 'HSC 25-Q (Short Syllabus)' },
-            { id: 'medical_100', label: 'Medical & Dental 100-Q (DGHS)' },
-            { id: 'du_admission', label: 'DU Ka/Kha 60-Q (Dhaka Univ)' },
-            { id: 'gst_cluster', label: 'GST Cluster 100-Q' },
-            { id: 'agri_cluster', label: 'Agriculture Cluster 100-Q' },
-          ].map(p => (
+          <div className="flex items-center gap-2">
             <button
-              key={p.id}
-              className={`preset-chip ${selectedPreset === p.id ? 'active' : ''}`}
-              onClick={() => handleSelectPreset(p.id as PresetType)}
+              type="button"
+              className="px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              onClick={handleExportTemplateJSON}
+              title="Export JSON matching this sheet"
             >
-              {p.label}
+              <Download size={14} /> <span>JSON</span>
             </button>
-          ))}
+            <button
+              type="button"
+              className="px-3 py-1.5 rounded-lg border border-indigo-500/50 bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              onClick={handleSyncToScanner}
+            >
+              <CheckCircle size={14} /> <span>স্ক্যানার সিঙ্ক</span>
+            </button>
+            <button
+              type="button"
+              className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-md shadow-emerald-600/30 cursor-pointer"
+              onClick={handlePrint}
+            >
+              <Printer size={15} /> <span>প্রিন্ট শিট (A4 / PDF)</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="generator-split-layout">
         {/* Left Side: Customization Sidebar */}
@@ -742,16 +844,62 @@ export function BangladeshOMRGenerator({
 
         {/* Right Side: Pixel-Perfect Printable A4 Sheet Viewport */}
         <div className="generator-sheet-viewport">
-          <div 
-            className={`bd-omr-printable-sheet layout-${layoutMode}`} 
-            ref={printContainerRef}
-            style={{
-              '--omr-theme': themeStyles.primary,
-              '--omr-theme-stripe': themeStyles.stripe,
-              '--omr-theme-bg': themeStyles.lightBg,
-              '--omr-theme-border': themeStyles.border,
-            } as any}
+          {/* Zoom & Dimensions Control Ribbon */}
+          <div className="sheet-zoom-ribbon no-print flex items-center justify-between w-full max-w-[820px] px-3 py-2 bg-slate-900/90 border border-slate-800 rounded-xl mb-3 text-xs">
+            <div className="flex items-center gap-1.5 text-slate-300">
+              <span className="font-semibold text-slate-400">স্ক্রিন জুম:</span>
+              {[
+                { label: 'Fit (৭৫%)', val: 0.75 },
+                { label: '৮৫% (স্বাভাবিক)', val: 0.85 },
+                { label: '১০০% (আসল সাইজ)', val: 1.0 },
+                { label: '১১০%', val: 1.1 },
+              ].map(z => (
+                <button
+                  key={z.val}
+                  type="button"
+                  onClick={() => setPreviewZoom(z.val)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    previewZoom === z.val
+                      ? 'bg-indigo-600 text-white shadow'
+                      : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+                  }`}
+                >
+                  {z.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="hidden sm:flex items-center gap-2 text-[11px] text-slate-400">
+              <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>স্ট্যান্ডার্ড A4: ২১০০ × ২৯৭০ px (৩০০ DPI রেডি)</span>
+            </div>
+          </div>
+
+          <div
+            className="sheet-zoom-container transition-transform duration-200 origin-top flex justify-center w-full"
+            style={{ transform: `scale(${previewZoom})` }}
           >
+          {selectedPreset === 'board_cq_3part' ? (
+            <div ref={printContainerRef} className="w-full flex justify-center">
+              <BangladeshBoardCQ3PartSheet
+                serialNumber={serialNumber}
+                examYear={examYear}
+                examId={examId}
+                instituteName={instituteNameBangla}
+                themeColor={themeColor as any}
+              />
+            </div>
+          ) : (
+            <div 
+              className={`bd-omr-printable-sheet layout-${layoutMode}`} 
+              ref={printContainerRef}
+              style={{
+                '--omr-theme': themeStyles.primary,
+                '--omr-theme-stripe': themeStyles.stripe,
+                '--omr-theme-bg': themeStyles.lightBg,
+                '--omr-theme-border': themeStyles.border,
+              } as any}
+            >
             {/* 4 Corner High-Precision Optical Registration Markers */}
             <div className="fiducial-marker top-left">
               <div className="marker-cross-circle">
@@ -788,6 +936,38 @@ export function BangladeshOMRGenerator({
 
             {/* Sheet Header Area */}
             <div className="sheet-header">
+              {/* Universal OMR QR Code Badge */}
+              <div 
+                className="omr-qr-code-box"
+                style={{ 
+                  position: 'absolute', 
+                  right: 4, 
+                  top: 0, 
+                  textAlign: 'center',
+                  background: '#ffffff',
+                  padding: '2px',
+                  border: '1px solid #111',
+                  borderRadius: '4px'
+                }}
+              >
+                <QRCodeSVG
+                  value={JSON.stringify({
+                    examId: examId || 'BOARD_EXAM',
+                    setId: setId || `SET_${setName || 'A'}`,
+                    setName: setName || 'A',
+                    template: selectedPreset || `board_${numQuestions}q`,
+                    title: examTitleBangla || 'Board Exam',
+                    v: 1
+                  })}
+                  size={52}
+                  level="M"
+                  includeMargin={false}
+                />
+                <div style={{ fontSize: '7.5px', fontFamily: 'monospace', color: '#111', fontWeight: 'bold', marginTop: '1px' }}>
+                  {`SET-${setName || 'A'}`}
+                </div>
+              </div>
+
               <div className="header-year-row">
                 <span className="exam-dotted-line">....................................................................................</span>
                 <span className="year-label">পরীক্ষা</span>
@@ -1214,6 +1394,8 @@ export function BangladeshOMRGenerator({
 
             {/* Bottom Optical Registration Bar */}
             <div className="timing-marker-bottom-center"></div>
+          </div>
+        )}
           </div>
         </div>
       </div>

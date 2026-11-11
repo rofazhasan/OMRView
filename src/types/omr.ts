@@ -125,6 +125,11 @@ export interface StudentScoreCard {
   sheetId: string;
   filename: string;
   rollNumber: string;
+  registrationNo?: string;
+  subjectCode?: string;
+  scriptSerial?: string;
+  isCQScript?: boolean;
+  obtainedMarks?: number;
   studentName?: string;
   examSet: string;
   totalScore: number;
