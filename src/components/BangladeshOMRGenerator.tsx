@@ -66,11 +66,26 @@ export function BangladeshOMRGenerator({
   hideTopHeader = false
 }: BangladeshOMRGeneratorProps) {
   // Preset selection
-  const [selectedPreset, setSelectedPreset] = useState<PresetType>(initialPreset || 'hsc_ssc_50');
+  const [selectedPreset, setSelectedPreset] = useState<PresetType>(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const p = urlParams.get('preset') as PresetType;
+      if (p && ['hsc_ssc_50', 'hsc_ssc_25', 'medical_100', 'du_admission', 'gst_cluster', 'agri_cluster', 'board_cq_3part'].includes(p)) {
+        return p;
+      }
+    }
+    return initialPreset || 'hsc_ssc_50';
+  });
 
   React.useEffect(() => {
-    if (initialPreset && initialPreset !== selectedPreset) {
-      handleSelectPreset(initialPreset);
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const p = urlParams.get('preset') as PresetType;
+      if (p && ['hsc_ssc_50', 'hsc_ssc_25', 'medical_100', 'du_admission', 'gst_cluster', 'agri_cluster', 'board_cq_3part'].includes(p)) {
+        handleSelectPreset(p);
+      } else if (initialPreset && initialPreset !== selectedPreset) {
+        handleSelectPreset(initialPreset);
+      }
     }
   }, [initialPreset]);
 
@@ -946,30 +961,45 @@ export function BangladeshOMRGenerator({
                   </span>
                 </div>
               )}
-              {/* Single preview on screen */}
-              <div className="w-full flex justify-center no-print">
-                <BangladeshBoardCQ3PartSheet
-                  serialNumber={serialNumber}
-                  examYear={examYear}
-                  examId={examId}
-                  instituteName={instituteNameBangla}
-                  themeColor={themeColor as any}
-                />
-              </div>
-              {/* All batch pages printed */}
-              <div className="print-only w-full">
-                {[...Array(batchCopies)].map((_, idx) => (
+              {batchCopies <= 1 ? (
+                /* Single sheet mode: directly printable without no-print */
+                <div className="w-full flex justify-center cq-single-sheet-wrap">
                   <BangladeshBoardCQ3PartSheet
-                    key={idx}
-                    serialNumber={incrementBoardSerial(serialNumber, idx)}
+                    serialNumber={serialNumber}
                     examYear={examYear}
                     examId={examId}
                     instituteName={instituteNameBangla}
                     themeColor={themeColor as any}
-                    sheetIndex={idx + 1}
                   />
-                ))}
-              </div>
+                </div>
+              ) : (
+                <>
+                  {/* Single preview on screen */}
+                  <div className="w-full flex justify-center no-print">
+                    <BangladeshBoardCQ3PartSheet
+                      serialNumber={serialNumber}
+                      examYear={examYear}
+                      examId={examId}
+                      instituteName={instituteNameBangla}
+                      themeColor={themeColor as any}
+                    />
+                  </div>
+                  {/* All batch pages printed */}
+                  <div className="print-only w-full">
+                    {[...Array(batchCopies)].map((_, idx) => (
+                      <BangladeshBoardCQ3PartSheet
+                        key={idx}
+                        serialNumber={incrementBoardSerial(serialNumber, idx)}
+                        examYear={examYear}
+                        examId={examId}
+                        instituteName={instituteNameBangla}
+                        themeColor={themeColor as any}
+                        sheetIndex={idx + 1}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <div 
