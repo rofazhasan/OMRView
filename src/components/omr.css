@@ -1753,11 +1753,26 @@
 }
 
 /* Print Optimization */
+.print-only {
+  display: none !important;
+}
+
 @media print {
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
   .bd-cq-3part-sheet {
-    box-shadow: none;
-    padding: 0;
-    max-width: 100%;
-    width: 100%;
+    box-shadow: none !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+  }
+  .print-break-after {
+    page-break-after: always !important;
+    break-after: page !important;
   }
 }

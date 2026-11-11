@@ -15,9 +15,23 @@ import {
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import type { Template } from '../types/omr';
-import { toBanglaNumber } from '../utils/banglaUtils';
+import { toBanglaNumber, generateBoardCQSerial, incrementBoardSerial } from '../utils/banglaUtils';
 import { BangladeshBoardCQ3PartSheet } from './BangladeshBoardCQ3PartSheet';
 import './omr.css';
+
+const BANGLADESH_BOARDS = [
+  { name: 'মাধ্যমিক ও উচ্চ মাধ্যমিক শিক্ষা বোর্ড, ঢাকা', prefix: 'T' },
+  { name: 'মাধ্যমিক ও উচ্চ মাধ্যমিক শিক্ষা বোর্ড, চট্টগ্রাম', prefix: 'C' },
+  { name: 'মাধ্যমিক ও উচ্চ মাধ্যমিক শিক্ষা বোর্ড, রাজশাহী', prefix: 'R' },
+  { name: 'মাধ্যমিক ও উচ্চ মাধ্যমিক শিক্ষা বোর্ড, যশোর', prefix: 'J' },
+  { name: 'মাধ্যমিক ও উচ্চ মাধ্যমিক শিক্ষা বোর্ড, বরিশাল', prefix: 'B' },
+  { name: 'মাধ্যমিক ও উচ্চ মাধ্যমিক শিক্ষা বোর্ড, সিলেট', prefix: 'S' },
+  { name: 'মাধ্যমিক ও উচ্চ মাধ্যমিক শিক্ষা বোর্ড, দিনাজপুর', prefix: 'DIN' },
+  { name: 'মাধ্যমিক ও উচ্চ মাধ্যমিক শিক্ষা বোর্ড, ময়মনসিংহ', prefix: 'M' },
+  { name: 'মাধ্যমিক ও উচ্চ মাধ্যমিক শিক্ষা বোর্ড, কুমিল্লা', prefix: 'COM' },
+  { name: 'বাংলাদেশ মাদ্রাসা শিক্ষা বোর্ড, ঢাকা', prefix: 'MAD' },
+  { name: 'বাংলাদেশ কারিগরি শিক্ষা বোর্ড, ঢাকা', prefix: 'BTEB' },
+];
 
 interface BangladeshOMRGeneratorProps {
   initialPreset?: PresetType;
@@ -65,7 +79,9 @@ export function BangladeshOMRGenerator({
   const [instituteNameBangla, setInstituteNameBangla] = useState<string>('মাধ্যমিক ও উচ্চ মাধ্যমিক শিক্ষা বোর্ড');
   const [subHeaderBangla, setSubHeaderBangla] = useState<string>('উত্তরপত্রে নির্ধারিত স্থান ব্যতীত কোন অবাঞ্ছিত দাগ দেয়া বা কোন কিছু লেখা যাবে না');
   const [examYear, setExamYear] = useState<string>('২৬'); // Year 2026
-  const [serialNumber, setSerialNumber] = useState<string>('HSC-2026-948120');
+  const [boardPrefix, setBoardPrefix] = useState<string>('T');
+  const [serialNumber, setSerialNumber] = useState<string>(() => generateBoardCQSerial('T', '26'));
+  const [batchCopies, setBatchCopies] = useState<number>(1);
   
   // Sections & Questions
   const [numQuestions, setNumQuestions] = useState<number>(50);
@@ -238,9 +254,16 @@ export function BangladeshOMRGenerator({
       setShowSignatures(true);
       setShowInstructions(true);
       setShowBarcodeSecurity(true);
-      setSerialNumber('T2301139641');
+      const generated = generateBoardCQSerial(boardPrefix, examYear || '26');
+      setSerialNumber(generated);
       setStatusMessage('Loaded Official Bangladesh Board 3-Part CQ Script Cover Sheet (সৃজনশীল ও রচনামূলক)');
     }
+  };
+
+  const handleGenerateNewSerial = () => {
+    const fresh = generateBoardCQSerial(boardPrefix, examYear || '26');
+    setSerialNumber(fresh);
+    setStatusMessage(`Generated authentic Board Serial: ${fresh}`);
   };
 
   // Compile JSON Template matching the printed sheet geometry
@@ -792,13 +815,26 @@ export function BangladeshOMRGenerator({
           <div className="sidebar-group">
             <h3><FileText size={16} /> Official Headers & Titles</h3>
             <div className="field-group">
-              <label>Institution / Board Name</label>
-              <input 
-                type="text" 
+              <label>শিক্ষা বোর্ড (Education Board)</label>
+              <select 
                 value={instituteNameBangla} 
-                onChange={(e) => setInstituteNameBangla(e.target.value)} 
-                className="input-field" 
-              />
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setInstituteNameBangla(val);
+                  const found = BANGLADESH_BOARDS.find(b => b.name === val);
+                  if (found) {
+                    setBoardPrefix(found.prefix);
+                    if (selectedPreset === 'board_cq_3part') {
+                      setSerialNumber(generateBoardCQSerial(found.prefix, examYear || '26'));
+                    }
+                  }
+                }} 
+                className="input-field"
+              >
+                {BANGLADESH_BOARDS.map(b => (
+                  <option key={b.prefix} value={b.name}>{b.name}</option>
+                ))}
+              </select>
             </div>
             <div className="field-group">
               <label>Exam Title Header</label>
@@ -830,14 +866,36 @@ export function BangladeshOMRGenerator({
                 />
               </div>
               <div className="field-group">
-                <label>OMR Serial Number</label>
+                <div className="flex items-center justify-between">
+                  <label>OMR Serial Number</label>
+                  <button 
+                    type="button" 
+                    onClick={handleGenerateNewSerial}
+                    className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 underline cursor-pointer"
+                    title="নতুন স্বয়ংক্রিয় বোর্ড সিরিয়াল নম্বর তৈরি করুন"
+                  >
+                    🎲 নতুন সিরিয়াল
+                  </button>
+                </div>
                 <input 
                   type="text" 
                   value={serialNumber} 
                   onChange={(e) => setSerialNumber(e.target.value)} 
-                  className="input-field" 
+                  className="input-field font-mono font-bold" 
                 />
               </div>
+            </div>
+            <div className="field-group">
+              <label>প্রিন্ট কপি সংখ্যা (Batch Print Copies)</label>
+              <input 
+                type="number" 
+                min="1" 
+                max="500"
+                value={batchCopies} 
+                onChange={(e) => setBatchCopies(Math.max(1, parseInt(e.target.value) || 1))} 
+                className="input-field" 
+              />
+              <span className="text-[10px] text-slate-400">প্রতিটি প্রিন্ট কপিতে স্বয়ংক্রিয়ভাবে পরবর্তী ধারাবাহিক সিরিয়াল নম্বর ও কিউআর কোড থাকবে।</span>
             </div>
           </div>
         </div>
@@ -880,14 +938,38 @@ export function BangladeshOMRGenerator({
             style={{ transform: `scale(${previewZoom})` }}
           >
           {selectedPreset === 'board_cq_3part' ? (
-            <div ref={printContainerRef} className="w-full flex justify-center">
-              <BangladeshBoardCQ3PartSheet
-                serialNumber={serialNumber}
-                examYear={examYear}
-                examId={examId}
-                instituteName={instituteNameBangla}
-                themeColor={themeColor as any}
-              />
+            <div ref={printContainerRef} className="w-full flex flex-col items-center">
+              {batchCopies > 1 && (
+                <div className="no-print mb-3 w-full max-w-[880px] p-2.5 bg-indigo-950/80 border border-indigo-700/60 rounded-xl text-xs text-indigo-200 flex items-center justify-between">
+                  <span>
+                    📋 <strong>ব্যাচ প্রিন্ট মোড সক্রিয়:</strong> মোট <strong>{batchCopies}</strong> টি উত্তরপত্র প্রিন্ট হবে। প্রথমটি <code>{serialNumber}</code> এবং শেষটি <code>{incrementBoardSerial(serialNumber, batchCopies - 1)}</code>।
+                  </span>
+                </div>
+              )}
+              {/* Single preview on screen */}
+              <div className="w-full flex justify-center no-print">
+                <BangladeshBoardCQ3PartSheet
+                  serialNumber={serialNumber}
+                  examYear={examYear}
+                  examId={examId}
+                  instituteName={instituteNameBangla}
+                  themeColor={themeColor as any}
+                />
+              </div>
+              {/* All batch pages printed */}
+              <div className="print-only w-full">
+                {[...Array(batchCopies)].map((_, idx) => (
+                  <BangladeshBoardCQ3PartSheet
+                    key={idx}
+                    serialNumber={incrementBoardSerial(serialNumber, idx)}
+                    examYear={examYear}
+                    examId={examId}
+                    instituteName={instituteNameBangla}
+                    themeColor={themeColor as any}
+                    sheetIndex={idx + 1}
+                  />
+                ))}
+              </div>
             </div>
           ) : (
             <div 

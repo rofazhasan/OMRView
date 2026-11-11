@@ -2,25 +2,64 @@
 
 import React from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { toBanglaNumber } from '../utils/banglaUtils';
+import { toBanglaNumber, generateBoardCQSerial } from '../utils/banglaUtils';
 
-interface BangladeshBoardCQ3PartSheetProps {
+export interface BangladeshBoardCQ3PartSheetProps {
   serialNumber?: string;
   examYear?: string;
   examId?: string;
   instituteName?: string;
   themeColor?: 'magenta' | 'black' | 'blue';
   examType?: 'SSC' | 'HSC' | 'DIBS';
+  sheetIndex?: number;
 }
 
+/**
+ * Official Bangladesh Government / Education Board Crest Monogram SVG
+ */
+const OfficialBoardEmblem = ({ size = 26, color = 'currentColor' }: { size?: number; color?: string }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 100 100" 
+    fill="none" 
+    xmlns="http://www.w3.org/2000/svg" 
+    className="cq-board-emblem inline-block align-middle"
+  >
+    <circle cx="50" cy="50" r="46" stroke={color} strokeWidth="3" fill="#ffffff" />
+    <circle cx="50" cy="50" r="41" stroke={color} strokeWidth="1.5" strokeDasharray="3 2" />
+    {/* Water lily blossom center (শাপলা) */}
+    <path d="M50 24 C46 34 38 44 32 48 C36 46 44 45 47 48 C48 38 50 30 50 24 Z" fill={color} />
+    <path d="M50 24 C54 34 62 44 68 48 C64 46 56 45 53 48 C52 38 50 30 50 24 Z" fill={color} />
+    <path d="M50 22 C49 32 46 44 50 50 C54 44 51 32 50 22 Z" fill={color} />
+    {/* Base water waves (নদীমাতৃক বাংলাদেশ) */}
+    <path d="M26 62 Q50 54 74 62 Q50 58 26 62 Z" fill={color} />
+    <path d="M30 67 Q50 61 70 67 Q50 64 30 67 Z" fill={color} />
+    <path d="M36 72 Q50 68 64 72 Q50 70 36 72 Z" fill={color} />
+    {/* Surrounding rice paddy sheaves (ধানের শীষ) */}
+    <path d="M24 50 C22 40 26 30 32 26 C28 32 28 42 30 48 Z" fill={color} />
+    <path d="M76 50 C78 40 74 30 68 26 C72 32 72 42 70 48 Z" fill={color} />
+    {/* 4 National Stars */}
+    <polygon points="50,11 51.5,14 55,14 52,16 53.5,19 50,17 46.5,19 48,16 45,14 48.5,14" fill={color} />
+  </svg>
+);
+
 export function BangladeshBoardCQ3PartSheet({
-  serialNumber = 'T2301139641',
+  serialNumber,
   examYear = '২৬',
   examId = 'BOARD_CQ_EXAM',
   instituteName = 'মাধ্যমিক ও উচ্চ মাধ্যমিক শিক্ষা বোর্ড, ঢাকা',
   themeColor = 'magenta',
   examType = 'HSC'
 }: BangladeshBoardCQ3PartSheetProps) {
+  // If serialNumber is missing or placeholder T2301139641, generate a dynamic authentic serial
+  const effectiveSerial = React.useMemo(() => {
+    if (serialNumber && serialNumber !== 'T2301139641') {
+      return serialNumber;
+    }
+    return generateBoardCQSerial('T', examYear || '26');
+  }, [serialNumber, examYear]);
+
   const digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
   // Theme color mappings
@@ -52,7 +91,7 @@ export function BangladeshBoardCQ3PartSheet({
 
   return (
     <div 
-      className="bd-cq-3part-sheet"
+      className="bd-cq-3part-sheet print-break-after"
       style={{
         '--cq-primary': themePalette.primary,
         '--cq-light-stripe': themePalette.lightStripe,
@@ -60,7 +99,7 @@ export function BangladeshBoardCQ3PartSheet({
         '--cq-border': themePalette.border,
       } as React.CSSProperties}
     >
-      {/* 4 Optical Registration Crosshair Markers (+) */}
+      {/* 4 Optical Registration Crosshair Markers (⊕) */}
       <div className="cq-crosshair top-left">⊕</div>
       <div className="cq-crosshair top-right">⊕</div>
       <div className="cq-crosshair bottom-left">⊕</div>
@@ -68,10 +107,10 @@ export function BangladeshBoardCQ3PartSheet({
 
       {/* Lateral Continuous Timing Tracks (Left & Right) */}
       <div className="cq-side-timing left">
-        {[...Array(38)].map((_, i) => <div key={i} className="cq-sync-block"></div>)}
+        {[...Array(40)].map((_, i) => <div key={i} className="cq-sync-block"></div>)}
       </div>
       <div className="cq-side-timing right">
-        {[...Array(38)].map((_, i) => <div key={i} className="cq-sync-block"></div>)}
+        {[...Array(40)].map((_, i) => <div key={i} className="cq-sync-block"></div>)}
       </div>
 
       {/* ========================================================================= */}
@@ -80,7 +119,10 @@ export function BangladeshBoardCQ3PartSheet({
       <section className="cq-part-container part-1-student">
         <div className="cq-part-header">
           <div className="cq-board-title-group">
-            <h2 className="cq-board-title">{instituteName}</h2>
+            <div className="flex items-center justify-center gap-2 mb-0.5">
+              <OfficialBoardEmblem size={28} color={themePalette.primary} />
+              <h2 className="cq-board-title">{instituteName}</h2>
+            </div>
             <div className="cq-exam-subrow">
               <span className="cq-exam-label">এস.এস.সি / এইচ.এস.সি / ডিআইবিএস পরীক্ষা - ২০</span>
               <div className="cq-year-boxes">
@@ -91,12 +133,12 @@ export function BangladeshBoardCQ3PartSheet({
           </div>
 
           <div className="cq-tracking-box">
-            <div className="cq-serial-number">{serialNumber}</div>
+            <div className="cq-serial-number">{effectiveSerial}</div>
             <div className="cq-qr-wrapper">
               <QRCodeSVG
                 value={JSON.stringify({
                   part: 'P1_STUDENT',
-                  sn: serialNumber,
+                  sn: effectiveSerial,
                   ex: examId,
                   v: 1
                 })}
@@ -249,8 +291,14 @@ export function BangladeshBoardCQ3PartSheet({
       {/* ========================================================================= */}
       <section className="cq-part-container part-2-examiner">
         <div className="cq-part-header compact">
+          <div className="cq-part2-tag font-bold text-xs" style={{ color: themePalette.primary }}>
+            পরীক্ষক / প্র: পরীক্ষকের অংশ
+          </div>
           <div className="cq-board-title-group">
-            <h3 className="cq-board-title sm">{instituteName}</h3>
+            <div className="flex items-center justify-center gap-1.5 mb-0.5">
+              <OfficialBoardEmblem size={22} color={themePalette.primary} />
+              <h3 className="cq-board-title sm">{instituteName}</h3>
+            </div>
             <div className="cq-exam-subrow">
               <span>এস.এস.সি / এইচ.এস.সি / ডিআইবিএস পরীক্ষা - ২০</span>
               <div className="cq-year-boxes">
@@ -263,7 +311,7 @@ export function BangladeshBoardCQ3PartSheet({
             <QRCodeSVG
               value={JSON.stringify({
                 part: 'P2_EXAMINER',
-                sn: serialNumber,
+                sn: effectiveSerial,
                 v: 1
               })}
               size={36}
@@ -428,7 +476,13 @@ export function BangladeshBoardCQ3PartSheet({
       {/* ========================================================================= */}
       <section className="cq-part-container part-3-script">
         <div className="cq-part-header compact">
-          <h3 className="cq-board-title sm">{instituteName}</h3>
+          <div className="cq-part3-tag font-bold text-xs" style={{ color: themePalette.primary }}>
+            উত্তরপত্রের অংশ
+          </div>
+          <div className="flex items-center justify-center gap-1.5 flex-1">
+            <OfficialBoardEmblem size={22} color={themePalette.primary} />
+            <h3 className="cq-board-title sm">{instituteName}</h3>
+          </div>
         </div>
 
         {/* Sync Band */}
@@ -461,7 +515,7 @@ export function BangladeshBoardCQ3PartSheet({
             <QRCodeSVG
               value={JSON.stringify({
                 part: 'P3_BREAKDOWN',
-                sn: serialNumber,
+                sn: effectiveSerial,
                 v: 1
               })}
               size={34}
@@ -534,4 +588,3 @@ export function BangladeshBoardCQ3PartSheet({
     </div>
   );
 }
-
