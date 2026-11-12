@@ -143,26 +143,33 @@ export function BangladeshBoardCQ3PartSheet({
       {/* PART 1: পরীক্ষার্থীর অংশ (Student Identification Section)                 */}
       {/* ========================================================================= */}
       <section className="cq-part-container part-1-student">
-        <div className="cq-part-header cq-formal-header-row">
-          {/* Section Tag */}
-          <div className="cq-part-badge" style={{ color: themePalette.primary, borderColor: themePalette.border, background: themePalette.tintBg }}>
-            পরীক্ষার্থীর অংশ
-          </div>
-
-          {/* School / Exam Name and Info in the SAME line */}
-          <div className="cq-header-info-inline">
-            <OfficialBoardEmblem size={22} color={themePalette.primary} />
-            <span className="cq-inline-institute">{instituteName}</span>
-            <span className="cq-inline-separator">•</span>
-            <span className="cq-inline-exam">{examTitle} - ২০</span>
-            <div className="cq-year-boxes">
-              <div className="cq-digit-box">{yearDigits[0]}</div>
-              <div className="cq-digit-box">{yearDigits[1]}</div>
+        <div className="cq-part-header formal-double-line">
+          {/* Left Tag */}
+          <div className="cq-header-side left">
+            <div className="cq-part-badge" style={{ color: themePalette.primary, borderColor: themePalette.border, background: themePalette.tintBg }}>
+              পরীক্ষার্থীর অংশ
             </div>
           </div>
 
-          {/* Tracking Info on the same line */}
-          <div className="cq-tracking-box-inline">
+          {/* Center: Formal Double-Line (School/Board Name + Exam Title & Year) */}
+          <div className="cq-header-center-double">
+            {/* Line 1: School / Board Name */}
+            <div className="cq-title-line-1">
+              <OfficialBoardEmblem size={24} color={themePalette.primary} />
+              <h2 className="cq-board-title">{instituteName}</h2>
+            </div>
+            {/* Line 2: Exam Name with Year Digits */}
+            <div className="cq-title-line-2">
+              <span className="cq-exam-label">{examTitle} - ২০</span>
+              <div className="cq-year-boxes">
+                <div className="cq-digit-box">{yearDigits[0]}</div>
+                <div className="cq-digit-box">{yearDigits[1]}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Tracking Box */}
+          <div className="cq-header-side right">
             <div className="cq-serial-number">{effectiveSerial}</div>
             <div className="cq-qr-wrapper">
               <QRCodeSVG
@@ -175,7 +182,7 @@ export function BangladeshBoardCQ3PartSheet({
                   yr: yearDigits.join(''),
                   v: 1
                 })}
-                size={34}
+                size={36}
                 level="M"
                 includeMargin={false}
               />
@@ -316,26 +323,33 @@ export function BangladeshBoardCQ3PartSheet({
       {/* PART 2: পরীক্ষক ও প্রধান পরীক্ষকের অংশ (Examiner Evaluation Section)       */}
       {/* ========================================================================= */}
       <section className="cq-part-container part-2-examiner">
-        <div className="cq-part-header cq-formal-header-row">
-          {/* Section Tag */}
-          <div className="cq-part-badge" style={{ color: themePalette.primary, borderColor: themePalette.border, background: themePalette.tintBg }}>
-            পরীক্ষক / প্র: পরীক্ষকের অংশ
-          </div>
-
-          {/* School / Exam Name and Info in the SAME line */}
-          <div className="cq-header-info-inline">
-            <OfficialBoardEmblem size={20} color={themePalette.primary} />
-            <span className="cq-inline-institute sm">{instituteName}</span>
-            <span className="cq-inline-separator">•</span>
-            <span className="cq-inline-exam sm">{examTitle} - ২০</span>
-            <div className="cq-year-boxes">
-              <div className="cq-digit-box">{yearDigits[0]}</div>
-              <div className="cq-digit-box">{yearDigits[1]}</div>
+        <div className="cq-part-header formal-double-line">
+          {/* Left Tag */}
+          <div className="cq-header-side left">
+            <div className="cq-part-badge" style={{ color: themePalette.primary, borderColor: themePalette.border, background: themePalette.tintBg }}>
+              পরীক্ষক / প্র: পরীক্ষকের অংশ
             </div>
           </div>
 
-          {/* Tracking QR on the same line */}
-          <div className="cq-tracking-box-inline">
+          {/* Center: Formal Double-Line (School/Board Name + Exam Title & Year) */}
+          <div className="cq-header-center-double">
+            {/* Line 1: School / Board Name */}
+            <div className="cq-title-line-1 sm">
+              <OfficialBoardEmblem size={20} color={themePalette.primary} />
+              <h3 className="cq-board-title sm">{instituteName}</h3>
+            </div>
+            {/* Line 2: Exam Name with Year Digits */}
+            <div className="cq-title-line-2 sm">
+              <span className="cq-exam-label">{examTitle} - ২০</span>
+              <div className="cq-year-boxes">
+                <div className="cq-digit-box">{yearDigits[0]}</div>
+                <div className="cq-digit-box">{yearDigits[1]}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Tracking QR */}
+          <div className="cq-header-side right">
             <div className="cq-qr-wrapper sm">
               <QRCodeSVG
                 value={JSON.stringify({
@@ -343,7 +357,7 @@ export function BangladeshBoardCQ3PartSheet({
                   sn: effectiveSerial,
                   v: 1
                 })}
-                size={32}
+                size={34}
                 level="M"
                 includeMargin={false}
               />
@@ -505,26 +519,33 @@ export function BangladeshBoardCQ3PartSheet({
       {/* PART 3: উত্তরপত্রের অংশ (Script Attached Marks Breakdown Table)           */}
       {/* ========================================================================= */}
       <section className="cq-part-container part-3-script">
-        <div className="cq-part-header cq-formal-header-row">
-          {/* Section Tag */}
-          <div className="cq-part-badge" style={{ color: themePalette.primary, borderColor: themePalette.border, background: themePalette.tintBg }}>
-            উত্তরপত্রের অংশ
-          </div>
-
-          {/* School / Exam Name and Info in the SAME line */}
-          <div className="cq-header-info-inline">
-            <OfficialBoardEmblem size={20} color={themePalette.primary} />
-            <span className="cq-inline-institute sm">{instituteName}</span>
-            <span className="cq-inline-separator">•</span>
-            <span className="cq-inline-exam sm">{examTitle} - ২০</span>
-            <div className="cq-year-boxes">
-              <div className="cq-digit-box">{yearDigits[0]}</div>
-              <div className="cq-digit-box">{yearDigits[1]}</div>
+        <div className="cq-part-header formal-double-line">
+          {/* Left Tag */}
+          <div className="cq-header-side left">
+            <div className="cq-part-badge" style={{ color: themePalette.primary, borderColor: themePalette.border, background: themePalette.tintBg }}>
+              উত্তরপত্রের অংশ
             </div>
           </div>
 
-          {/* Tracking Info on the same line */}
-          <div className="cq-tracking-box-inline">
+          {/* Center: Formal Double-Line (School/Board Name + Exam Title & Year) */}
+          <div className="cq-header-center-double">
+            {/* Line 1: School / Board Name */}
+            <div className="cq-title-line-1 sm">
+              <OfficialBoardEmblem size={20} color={themePalette.primary} />
+              <h3 className="cq-board-title sm">{instituteName}</h3>
+            </div>
+            {/* Line 2: Exam Name with Year Digits */}
+            <div className="cq-title-line-2 sm">
+              <span className="cq-exam-label">{examTitle} - ২০</span>
+              <div className="cq-year-boxes">
+                <div className="cq-digit-box">{yearDigits[0]}</div>
+                <div className="cq-digit-box">{yearDigits[1]}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Tracking Box */}
+          <div className="cq-header-side right">
             <div className="cq-serial-number sm">{effectiveSerial}</div>
             <div className="cq-qr-wrapper sm">
               <QRCodeSVG
