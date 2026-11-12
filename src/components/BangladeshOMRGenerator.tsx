@@ -828,78 +828,172 @@ export function BangladeshOMRGenerator({
           </div>
 
           <div className="sidebar-group">
-            <h3><FileText size={16} /> Official Headers & Titles</h3>
+            <h3><FileText size={16} /> Official Headers & Titles (শিরোনাম ও বোর্ড)</h3>
+            
+            {/* Education Board / Institution Selector */}
             <div className="field-group">
-              <label>শিক্ষা বোর্ড (Education Board)</label>
+              <label className="flex items-center justify-between text-xs font-semibold text-slate-300">
+                <span>শিক্ষা বোর্ড / প্রতিষ্ঠান (Board / Institute)</span>
+                <span className="text-[10px] text-indigo-400 font-semibold">কাস্টমাইজেবল</span>
+              </label>
               <select 
-                value={instituteNameBangla} 
+                value={BANGLADESH_BOARDS.some(b => b.name === instituteNameBangla) ? instituteNameBangla : 'CUSTOM'} 
                 onChange={(e) => {
                   const val = e.target.value;
-                  setInstituteNameBangla(val);
-                  const found = BANGLADESH_BOARDS.find(b => b.name === val);
-                  if (found) {
-                    setBoardPrefix(found.prefix);
-                    if (selectedPreset === 'board_cq_3part') {
-                      setSerialNumber(generateBoardCQSerial(found.prefix, examYear || '26'));
+                  if (val !== 'CUSTOM') {
+                    setInstituteNameBangla(val);
+                    const found = BANGLADESH_BOARDS.find(b => b.name === val);
+                    if (found) {
+                      setBoardPrefix(found.prefix);
+                      if (selectedPreset === 'board_cq_3part') {
+                        setSerialNumber(generateBoardCQSerial(found.prefix, examYear || '26'));
+                      }
                     }
                   }
                 }} 
-                className="input-field"
+                className="input-field mb-1.5"
               >
                 {BANGLADESH_BOARDS.map(b => (
                   <option key={b.prefix} value={b.name}>{b.name}</option>
                 ))}
+                <option value="CUSTOM">✏️ কাস্টম শিক্ষা প্রতিষ্ঠান / স্কুল / কলেজ...</option>
               </select>
+              <input 
+                type="text" 
+                value={instituteNameBangla} 
+                onChange={(e) => setInstituteNameBangla(e.target.value)} 
+                className="input-field" 
+                placeholder="প্রতিষ্ঠানের নাম লিখুন (যেমন: মাধ্যমিক ও উচ্চ মাধ্যমিক শিক্ষা বোর্ড, ঢাকা)"
+              />
             </div>
+
+            {/* Exam Title with Quick Presets */}
             <div className="field-group">
-              <label>Exam Title Header</label>
+              <label className="flex items-center justify-between text-xs font-semibold text-slate-300">
+                <span>পরীক্ষার নাম (Exam Title)</span>
+                <span className="text-[10px] text-indigo-400 font-semibold">কাস্টমাইজেবল</span>
+              </label>
+              {/* Quick Exam Title Pills */}
+              <div className="flex flex-wrap gap-1 mb-1.5">
+                {[
+                  { label: 'SSC/HSC/DIBS', text: 'এস.এস.সি / এইচ.এস.সি / ডিআইবিএস পরীক্ষা' },
+                  { label: 'HSC', text: 'এইচ.এস.সি পরীক্ষা' },
+                  { label: 'SSC', text: 'এস.এস.সি পরীক্ষা' },
+                  { label: 'দাখিল/আলিম', text: 'দাখিল / আলিম পরীক্ষা' },
+                  { label: 'নির্বাচনী (Test)', text: 'নির্বাচনী পরীক্ষা' },
+                  { label: 'বার্ষিক', text: 'বার্ষিক পরীক্ষা' },
+                  { label: 'মডেল টেস্ট', text: 'মডেল টেস্ট পরীক্ষা' },
+                ].map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => setExamTitleBangla(item.text)}
+                    className={`px-2 py-0.5 rounded text-[10px] font-semibold transition cursor-pointer ${
+                      examTitleBangla === item.text
+                        ? 'bg-indigo-600 text-white shadow'
+                        : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
               <input 
                 type="text" 
                 value={examTitleBangla} 
                 onChange={(e) => setExamTitleBangla(e.target.value)} 
                 className="input-field" 
+                placeholder="পরীক্ষার নাম (যেমন: এইচ.এস.সি পরীক্ষা বা নির্বাচনী পরীক্ষা)"
               />
             </div>
-            <div className="field-group">
-              <label>Warning Sub-Header</label>
-              <input 
-                type="text" 
-                value={subHeaderBangla} 
-                onChange={(e) => setSubHeaderBangla(e.target.value)} 
-                className="input-field" 
-              />
-            </div>
+
+            {/* Warning Sub-Header for OMR sheets */}
+            {selectedPreset !== 'board_cq_3part' && (
+              <div className="field-group">
+                <label>Warning Sub-Header</label>
+                <input 
+                  type="text" 
+                  value={subHeaderBangla} 
+                  onChange={(e) => setSubHeaderBangla(e.target.value)} 
+                  className="input-field" 
+                />
+              </div>
+            )}
+
+            {/* Exam Year & Serial Number Row */}
             <div className="field-row">
               <div className="field-group">
-                <label>Exam Year</label>
+                <label className="text-xs font-semibold text-slate-300">পরীক্ষার সাল (Year)</label>
+                <div className="flex items-center gap-1 mb-1">
+                  {['2024', '2025', '2026', '2027'].map((yr) => (
+                    <button
+                      key={yr}
+                      type="button"
+                      onClick={() => {
+                        const shortYr = yr.slice(-2);
+                        setExamYear(shortYr);
+                        if (selectedPreset === 'board_cq_3part') {
+                          setSerialNumber(generateBoardCQSerial(boardPrefix, shortYr));
+                        }
+                      }}
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition cursor-pointer flex-1 text-center ${
+                        examYear === yr.slice(-2) || examYear === yr
+                          ? 'bg-indigo-600 text-white shadow'
+                          : 'bg-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {yr}
+                    </button>
+                  ))}
+                </div>
                 <input 
                   type="text" 
                   value={examYear} 
-                  onChange={(e) => setExamYear(e.target.value)} 
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setExamYear(val);
+                    if (selectedPreset === 'board_cq_3part' && val.length >= 2) {
+                      setSerialNumber(generateBoardCQSerial(boardPrefix, val));
+                    }
+                  }} 
                   className="input-field" 
-                  placeholder="26"
+                  placeholder="2026 বা 26"
                 />
               </div>
+
               <div className="field-group">
                 <div className="flex items-center justify-between">
-                  <label>OMR Serial Number</label>
+                  <label className="text-xs font-semibold text-slate-300">বোর্ড সিরিয়াল নম্বর</label>
                   <button 
                     type="button" 
                     onClick={handleGenerateNewSerial}
-                    className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 underline cursor-pointer"
-                    title="নতুন স্বয়ংক্রিয় বোর্ড সিরিয়াল নম্বর তৈরি করুন"
+                    className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 underline cursor-pointer flex items-center gap-0.5"
+                    title="নতুন স্বয়ংক্রিয় ক্রিপ্টোগ্রাফিক বোর্ড সিরিয়াল নম্বর তৈরি করুন"
                   >
                     🎲 নতুন সিরিয়াল
                   </button>
                 </div>
-                <input 
-                  type="text" 
-                  value={serialNumber} 
-                  onChange={(e) => setSerialNumber(e.target.value)} 
-                  className="input-field font-mono font-bold" 
-                />
+                <div className="flex items-center gap-1.5">
+                  <input 
+                    type="text" 
+                    value={serialNumber} 
+                    onChange={(e) => setSerialNumber(e.target.value)} 
+                    className="input-field font-mono font-bold flex-1" 
+                    placeholder="T2684713059"
+                  />
+                  <button 
+                    type="button"
+                    onClick={handleGenerateNewSerial}
+                    className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold transition shadow cursor-pointer shrink-0"
+                    title="রেন্ডমাইজ করুন"
+                  >
+                    🎲
+                  </button>
+                </div>
               </div>
             </div>
+
+            {/* Batch Print Copies */}
             <div className="field-group">
               <label>প্রিন্ট কপি সংখ্যা (Batch Print Copies)</label>
               <input 
@@ -969,6 +1063,7 @@ export function BangladeshOMRGenerator({
                     examYear={examYear}
                     examId={examId}
                     instituteName={instituteNameBangla}
+                    examTitle={examTitleBangla}
                     themeColor={themeColor as any}
                   />
                 </div>
@@ -981,6 +1076,7 @@ export function BangladeshOMRGenerator({
                       examYear={examYear}
                       examId={examId}
                       instituteName={instituteNameBangla}
+                      examTitle={examTitleBangla}
                       themeColor={themeColor as any}
                     />
                   </div>
@@ -993,6 +1089,7 @@ export function BangladeshOMRGenerator({
                         examYear={examYear}
                         examId={examId}
                         instituteName={instituteNameBangla}
+                        examTitle={examTitleBangla}
                         themeColor={themeColor as any}
                         sheetIndex={idx + 1}
                       />

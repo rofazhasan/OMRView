@@ -9,6 +9,7 @@ export interface BangladeshBoardCQ3PartSheetProps {
   examYear?: string;
   examId?: string;
   instituteName?: string;
+  examTitle?: string;
   themeColor?: 'magenta' | 'black' | 'blue';
   examType?: 'SSC' | 'HSC' | 'DIBS';
   sheetIndex?: number;
@@ -49,6 +50,7 @@ export function BangladeshBoardCQ3PartSheet({
   examYear = '২৬',
   examId = 'BOARD_CQ_EXAM',
   instituteName = 'মাধ্যমিক ও উচ্চ মাধ্যমিক শিক্ষা বোর্ড, ঢাকা',
+  examTitle = 'এস.এস.সি / এইচ.এস.সি / ডিআইবিএস পরীক্ষা',
   themeColor = 'magenta',
   examType = 'HSC'
 }: BangladeshBoardCQ3PartSheetProps) {
@@ -59,6 +61,14 @@ export function BangladeshBoardCQ3PartSheet({
     }
     return generateBoardCQSerial('T', examYear || '26');
   }, [serialNumber, examYear]);
+
+  // Extract authentic 2 Bengali digits for exam year (e.g. '2026' or '26' or '২৬' -> ['২', '৬'])
+  const yearDigits = React.useMemo(() => {
+    const raw = String(examYear || '26').trim();
+    const enDigits = raw.replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d))).replace(/\D/g, '');
+    const lastTwo = enDigits.length >= 2 ? enDigits.slice(-2) : enDigits.padStart(2, '26');
+    return [toBanglaNumber(lastTwo[0] || '2'), toBanglaNumber(lastTwo[1] || '6')];
+  }, [examYear]);
 
   const digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
@@ -124,10 +134,10 @@ export function BangladeshBoardCQ3PartSheet({
               <h2 className="cq-board-title">{instituteName}</h2>
             </div>
             <div className="cq-exam-subrow">
-              <span className="cq-exam-label">এস.এস.সি / এইচ.এস.সি / ডিআইবিএস পরীক্ষা - ২০</span>
+              <span className="cq-exam-label">{examTitle} - ২০</span>
               <div className="cq-year-boxes">
-                <div className="cq-digit-box">{examYear[0] || '২'}</div>
-                <div className="cq-digit-box">{examYear[1] || '৬'}</div>
+                <div className="cq-digit-box">{yearDigits[0]}</div>
+                <div className="cq-digit-box">{yearDigits[1]}</div>
               </div>
             </div>
           </div>
@@ -140,6 +150,9 @@ export function BangladeshBoardCQ3PartSheet({
                   part: 'P1_STUDENT',
                   sn: effectiveSerial,
                   ex: examId,
+                  b: instituteName,
+                  t: examTitle,
+                  yr: yearDigits.join(''),
                   v: 1
                 })}
                 size={44}
