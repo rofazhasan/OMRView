@@ -143,22 +143,26 @@ export function BangladeshBoardCQ3PartSheet({
       {/* PART 1: পরীক্ষার্থীর অংশ (Student Identification Section)                 */}
       {/* ========================================================================= */}
       <section className="cq-part-container part-1-student">
-        <div className="cq-part-header">
-          <div className="cq-board-title-group">
-            <div className="flex items-center justify-center gap-2 mb-0.5">
-              <OfficialBoardEmblem size={28} color={themePalette.primary} />
-              <h2 className="cq-board-title">{instituteName}</h2>
-            </div>
-            <div className="cq-exam-subrow">
-              <span className="cq-exam-label">{examTitle} - ২০</span>
-              <div className="cq-year-boxes">
-                <div className="cq-digit-box">{yearDigits[0]}</div>
-                <div className="cq-digit-box">{yearDigits[1]}</div>
-              </div>
+        <div className="cq-part-header cq-formal-header-row">
+          {/* Section Tag */}
+          <div className="cq-part-badge" style={{ color: themePalette.primary, borderColor: themePalette.border, background: themePalette.tintBg }}>
+            পরীক্ষার্থীর অংশ
+          </div>
+
+          {/* School / Exam Name and Info in the SAME line */}
+          <div className="cq-header-info-inline">
+            <OfficialBoardEmblem size={22} color={themePalette.primary} />
+            <span className="cq-inline-institute">{instituteName}</span>
+            <span className="cq-inline-separator">•</span>
+            <span className="cq-inline-exam">{examTitle} - ২০</span>
+            <div className="cq-year-boxes">
+              <div className="cq-digit-box">{yearDigits[0]}</div>
+              <div className="cq-digit-box">{yearDigits[1]}</div>
             </div>
           </div>
 
-          <div className="cq-tracking-box">
+          {/* Tracking Info on the same line */}
+          <div className="cq-tracking-box-inline">
             <div className="cq-serial-number">{effectiveSerial}</div>
             <div className="cq-qr-wrapper">
               <QRCodeSVG
@@ -171,7 +175,7 @@ export function BangladeshBoardCQ3PartSheet({
                   yr: yearDigits.join(''),
                   v: 1
                 })}
-                size={44}
+                size={34}
                 level="M"
                 includeMargin={false}
               />
@@ -194,7 +198,7 @@ export function BangladeshBoardCQ3PartSheet({
 
         {/* Main Grid: Exam Type + Roll + Reg + Subject Code + Extra Scripts + Signature */}
         <div className="cq-p1-grid-layout">
-          {/* 1. Exam Level & Set Code Selector */}
+          {/* 1. Exam Level Selector (No set code in CQ) */}
           <div className="cq-field-column exam-type-col">
             <div className="cq-column-title">পরীক্ষা</div>
             <div className="cq-exam-bubble-options">
@@ -204,19 +208,6 @@ export function BangladeshBoardCQ3PartSheet({
                   <span>{opt}</span>
                 </label>
               ))}
-            </div>
-
-            {/* Set Code Section (সেট কোড) - fills vertical void and matches board specifications */}
-            <div className="cq-set-code-section">
-              <div className="cq-column-title sub">সেট কোড</div>
-              <div className="cq-set-bubble-options">
-                {['ক', 'খ', 'গ', 'ঘ'].map((s) => (
-                  <label key={s} className="cq-set-option">
-                    <span className="cq-bubble-circle"></span>
-                    <span>{s}</span>
-                  </label>
-                ))}
-              </div>
             </div>
           </div>
 
@@ -325,34 +316,38 @@ export function BangladeshBoardCQ3PartSheet({
       {/* PART 2: পরীক্ষক ও প্রধান পরীক্ষকের অংশ (Examiner Evaluation Section)       */}
       {/* ========================================================================= */}
       <section className="cq-part-container part-2-examiner">
-        <div className="cq-part-header compact">
-          <div className="cq-part2-tag font-bold text-xs" style={{ color: themePalette.primary }}>
+        <div className="cq-part-header cq-formal-header-row">
+          {/* Section Tag */}
+          <div className="cq-part-badge" style={{ color: themePalette.primary, borderColor: themePalette.border, background: themePalette.tintBg }}>
             পরীক্ষক / প্র: পরীক্ষকের অংশ
           </div>
-          <div className="cq-board-title-group">
-            <div className="flex items-center justify-center gap-1.5 mb-0.5">
-              <OfficialBoardEmblem size={22} color={themePalette.primary} />
-              <h3 className="cq-board-title sm">{instituteName}</h3>
-            </div>
-            <div className="cq-exam-subrow">
-              <span>{examTitle} - ২০</span>
-              <div className="cq-year-boxes">
-                <div className="cq-digit-box">{yearDigits[0]}</div>
-                <div className="cq-digit-box">{yearDigits[1]}</div>
-              </div>
+
+          {/* School / Exam Name and Info in the SAME line */}
+          <div className="cq-header-info-inline">
+            <OfficialBoardEmblem size={20} color={themePalette.primary} />
+            <span className="cq-inline-institute sm">{instituteName}</span>
+            <span className="cq-inline-separator">•</span>
+            <span className="cq-inline-exam sm">{examTitle} - ২০</span>
+            <div className="cq-year-boxes">
+              <div className="cq-digit-box">{yearDigits[0]}</div>
+              <div className="cq-digit-box">{yearDigits[1]}</div>
             </div>
           </div>
-          <div className="cq-qr-wrapper sm">
-            <QRCodeSVG
-              value={JSON.stringify({
-                part: 'P2_EXAMINER',
-                sn: effectiveSerial,
-                v: 1
-              })}
-              size={36}
-              level="M"
-              includeMargin={false}
-            />
+
+          {/* Tracking QR on the same line */}
+          <div className="cq-tracking-box-inline">
+            <div className="cq-qr-wrapper sm">
+              <QRCodeSVG
+                value={JSON.stringify({
+                  part: 'P2_EXAMINER',
+                  sn: effectiveSerial,
+                  v: 1
+                })}
+                size={32}
+                level="M"
+                includeMargin={false}
+              />
+            </div>
           </div>
         </div>
 
@@ -510,24 +505,26 @@ export function BangladeshBoardCQ3PartSheet({
       {/* PART 3: উত্তরপত্রের অংশ (Script Attached Marks Breakdown Table)           */}
       {/* ========================================================================= */}
       <section className="cq-part-container part-3-script">
-        <div className="cq-part-header compact p3-header-balanced">
-          <div className="cq-part3-tag font-bold text-xs" style={{ color: themePalette.primary }}>
+        <div className="cq-part-header cq-formal-header-row">
+          {/* Section Tag */}
+          <div className="cq-part-badge" style={{ color: themePalette.primary, borderColor: themePalette.border, background: themePalette.tintBg }}>
             উত্তরপত্রের অংশ
           </div>
-          <div className="cq-board-title-group flex-1">
-            <div className="flex items-center justify-center gap-1.5 mb-0.5">
-              <OfficialBoardEmblem size={22} color={themePalette.primary} />
-              <h3 className="cq-board-title sm">{instituteName}</h3>
-            </div>
-            <div className="cq-exam-subrow">
-              <span>{examTitle} - ২০</span>
-              <div className="cq-year-boxes">
-                <div className="cq-digit-box">{yearDigits[0]}</div>
-                <div className="cq-digit-box">{yearDigits[1]}</div>
-              </div>
+
+          {/* School / Exam Name and Info in the SAME line */}
+          <div className="cq-header-info-inline">
+            <OfficialBoardEmblem size={20} color={themePalette.primary} />
+            <span className="cq-inline-institute sm">{instituteName}</span>
+            <span className="cq-inline-separator">•</span>
+            <span className="cq-inline-exam sm">{examTitle} - ২০</span>
+            <div className="cq-year-boxes">
+              <div className="cq-digit-box">{yearDigits[0]}</div>
+              <div className="cq-digit-box">{yearDigits[1]}</div>
             </div>
           </div>
-          <div className="cq-tracking-box compact">
+
+          {/* Tracking Info on the same line */}
+          <div className="cq-tracking-box-inline">
             <div className="cq-serial-number sm">{effectiveSerial}</div>
             <div className="cq-qr-wrapper sm">
               <QRCodeSVG
@@ -540,7 +537,7 @@ export function BangladeshBoardCQ3PartSheet({
                   yr: yearDigits.join(''),
                   v: 1
                 })}
-                size={34}
+                size={32}
                 level="M"
                 includeMargin={false}
               />
