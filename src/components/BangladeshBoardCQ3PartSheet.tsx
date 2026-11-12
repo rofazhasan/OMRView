@@ -70,6 +70,22 @@ export function BangladeshBoardCQ3PartSheet({
     return [toBanglaNumber(lastTwo[0] || '2'), toBanglaNumber(lastTwo[1] || '6')];
   }, [examYear]);
 
+  // Dynamic exam level options based on examTitle
+  const examTypeOptions = React.useMemo(() => {
+    const title = (examTitle || '').toLowerCase();
+    if (title.includes('দাখিল') || title.includes('আলিম')) {
+      return ['দাখিল', 'আলিম', 'অন্যান্য'];
+    }
+    if (title.includes('জেএসসি') || title.includes('জেডিসি')) {
+      return ['জেএসসি', 'জেডিসি', 'অন্যান্য'];
+    }
+    if (title.includes('নির্বাচনী') || title.includes('বার্ষিক') || title.includes('মডেল') || title.includes('অর্ধ-বার্ষিক')) {
+      return ['অর্ধ-বার্ষিক', 'বার্ষিক', 'নির্বাচনী'];
+    }
+    // Default Bangladesh Board Options
+    return ['এসএসসি', 'এইচএসসি', 'ডিআইবিএস'];
+  }, [examTitle]);
+
   const digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
   // Theme color mappings
@@ -172,25 +188,35 @@ export function BangladeshBoardCQ3PartSheet({
             ))}
           </div>
         </div>
+        <div className="cq-sub-instruction">
+          অবশ্যই কালো কালির বলপয়েন্ট কলম দিয়ে বৃত্ত ভরাট করতে হবে।
+        </div>
 
         {/* Main Grid: Exam Type + Roll + Reg + Subject Code + Extra Scripts + Signature */}
         <div className="cq-p1-grid-layout">
-          {/* 1. Exam Level Selector */}
+          {/* 1. Exam Level & Set Code Selector */}
           <div className="cq-field-column exam-type-col">
             <div className="cq-column-title">পরীক্ষা</div>
             <div className="cq-exam-bubble-options">
-              <label className="cq-exam-option">
-                <span className={`cq-bubble-circle ${examType === 'SSC' ? 'active' : ''}`}></span>
-                <span>এসএসসি</span>
-              </label>
-              <label className="cq-exam-option">
-                <span className={`cq-bubble-circle ${examType === 'HSC' ? 'active' : ''}`}></span>
-                <span>এইচএসসি</span>
-              </label>
-              <label className="cq-exam-option">
-                <span className={`cq-bubble-circle ${examType === 'DIBS' ? 'active' : ''}`}></span>
-                <span>ডিআইবিএস</span>
-              </label>
+              {examTypeOptions.map((opt) => (
+                <label key={opt} className="cq-exam-option">
+                  <span className={`cq-bubble-circle ${examType === opt ? 'active' : ''}`}></span>
+                  <span>{opt}</span>
+                </label>
+              ))}
+            </div>
+
+            {/* Set Code Section (সেট কোড) - fills vertical void and matches board specifications */}
+            <div className="cq-set-code-section">
+              <div className="cq-column-title sub">সেট কোড</div>
+              <div className="cq-set-bubble-options">
+                {['ক', 'খ', 'গ', 'ঘ'].map((s) => (
+                  <label key={s} className="cq-set-option">
+                    <span className="cq-bubble-circle"></span>
+                    <span>{s}</span>
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -287,10 +313,6 @@ export function BangladeshBoardCQ3PartSheet({
           </div>
         </div>
 
-        <div className="cq-footer-instructions">
-          অবশ্যই কালো কালির বলপয়েন্ট কলম দিয়ে বৃত্ত ভরাট করতে হবে।
-        </div>
-
         {/* Bottom Perforation Marker for Part 1 */}
         <div className="cq-perforation-divider">
           <span className="cq-scissor-icon">✂️</span>
@@ -313,10 +335,10 @@ export function BangladeshBoardCQ3PartSheet({
               <h3 className="cq-board-title sm">{instituteName}</h3>
             </div>
             <div className="cq-exam-subrow">
-              <span>এস.এস.সি / এইচ.এস.সি / ডিআইবিএস পরীক্ষা - ২০</span>
+              <span>{examTitle} - ২০</span>
               <div className="cq-year-boxes">
-                <div className="cq-digit-box">{examYear[0] || '২'}</div>
-                <div className="cq-digit-box">{examYear[1] || '৬'}</div>
+                <div className="cq-digit-box">{yearDigits[0]}</div>
+                <div className="cq-digit-box">{yearDigits[1]}</div>
               </div>
             </div>
           </div>
@@ -343,7 +365,7 @@ export function BangladeshBoardCQ3PartSheet({
             ))}
           </div>
         </div>
-        <div className="cq-p2-sub-instruction">
+        <div className="cq-sub-instruction">
           অবশ্যই কালো কালির বলপয়েন্ট কলম দিয়ে বৃত্ত ভরাট করতে হবে।
         </div>
 
@@ -488,13 +510,41 @@ export function BangladeshBoardCQ3PartSheet({
       {/* PART 3: উত্তরপত্রের অংশ (Script Attached Marks Breakdown Table)           */}
       {/* ========================================================================= */}
       <section className="cq-part-container part-3-script">
-        <div className="cq-part-header compact">
+        <div className="cq-part-header compact p3-header-balanced">
           <div className="cq-part3-tag font-bold text-xs" style={{ color: themePalette.primary }}>
             উত্তরপত্রের অংশ
           </div>
-          <div className="flex items-center justify-center gap-1.5 flex-1">
-            <OfficialBoardEmblem size={22} color={themePalette.primary} />
-            <h3 className="cq-board-title sm">{instituteName}</h3>
+          <div className="cq-board-title-group flex-1">
+            <div className="flex items-center justify-center gap-1.5 mb-0.5">
+              <OfficialBoardEmblem size={22} color={themePalette.primary} />
+              <h3 className="cq-board-title sm">{instituteName}</h3>
+            </div>
+            <div className="cq-exam-subrow">
+              <span>{examTitle} - ২০</span>
+              <div className="cq-year-boxes">
+                <div className="cq-digit-box">{yearDigits[0]}</div>
+                <div className="cq-digit-box">{yearDigits[1]}</div>
+              </div>
+            </div>
+          </div>
+          <div className="cq-tracking-box compact">
+            <div className="cq-serial-number sm">{effectiveSerial}</div>
+            <div className="cq-qr-wrapper sm">
+              <QRCodeSVG
+                value={JSON.stringify({
+                  part: 'P3_BREAKDOWN',
+                  sn: effectiveSerial,
+                  ex: examId,
+                  b: instituteName,
+                  t: examTitle,
+                  yr: yearDigits.join(''),
+                  v: 1
+                })}
+                size={34}
+                level="M"
+                includeMargin={false}
+              />
+            </div>
           </div>
         </div>
 
